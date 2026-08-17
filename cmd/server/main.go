@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,14 +45,28 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("GET /api/modems", a.modems)
+	staticDir := fallback(os.Getenv("MM_WEB_STATIC_DIR"), "dist")
+	mux.Handle("/", staticFiles(staticDir))
 
 	addr := os.Getenv("MM_WEB_API_ADDR")
 	if addr == "" {
-		addr = "127.0.0.1:8080"
+		addr = ":8080"
 	}
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("mm-web API listening on http://%s", addr)
 	log.Fatal(server.ListenAndServe())
+}
+
+func staticFiles(dir string) http.Handler {
+	files := http.FileServer(http.Dir(dir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(dir, filepath.Clean(r.URL.Path))
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			files.ServeHTTP(w, r)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(dir, "index.html"))
+	})
 }
 
 func (a *api) health(w http.ResponseWriter, _ *http.Request) {
