@@ -1,0 +1,8 @@
+.git
+.github
+dist
+node_modules
+*.tsbuildinfo
+Dockerfile*
+README.md
+docs
