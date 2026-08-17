@@ -81,7 +81,18 @@ The first implementation should focus on:
 - Modem details.
 - Signal and registration state.
 - Bearer connect and disconnect.
+- SMS conversation list, sending, and deletion through ModemManager.
 - Clear error reporting.
 
-SMS, SIM PIN operations, USSD, GPS/location, alerts, and historical analytics
+SIM PIN operations, USSD, GPS/location, alerts, and historical analytics
 can follow after the control loop is proven.
+
+## 8. Organize the Go backend by concern
+
+Decision: keep `cmd/server/main.go` limited to process bootstrap and place the
+HTTP server implementation in `internal/server`.
+
+Within `internal/server`, route composition, shared D-Bus access, response and
+static-file helpers, and each product area live in separate files. New backend
+features should normally add a focused feature file instead of growing the
+entry point or introducing a package before it has a distinct responsibility.

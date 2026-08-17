@@ -80,3 +80,30 @@ not the first-version architecture.
 
 If write operations fail while reads work, investigate Polkit and D-Bus policy
 on the host before changing container device mounts.
+
+## SMS write permission
+
+Reading SMS may work while creating, sending, and deleting messages fails with
+a PolicyKit authorization error. Native development processes are not treated
+as an active desktop session, so the default ModemManager policy may reject
+them.
+
+The repository includes narrowly scoped rules for both current PolicyKit and
+older `pklocalauthority` systems. They grant only
+`org.freedesktop.ModemManager1.Messaging` to members of the `mm-web` group.
+Install it for the current user with:
+
+```bash
+./scripts/install-polkit-rule.sh
+```
+
+Start a new login session after installation, or run the development server in
+the new group immediately with:
+
+```bash
+sg mm-web -c 'npm run dev'
+```
+
+Do not replace this with a blanket ModemManager authorization rule. SMS write
+access allows sending and deleting messages and should be limited to the
+service account or administrators that run mm-web.
