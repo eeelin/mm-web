@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,6 +39,21 @@ func TestPushServicePersistsKeysAndSubscriptions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("VAPID key permissions = %v", info.Mode().Perm())
+	}
+}
+
+func TestDebugPushReportsMissingSubscription(t *testing.T) {
+	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &api{push: service, debugPushToken: "secret"}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/debug/push", nil)
+	request.Header.Set("X-Debug-Token", "secret")
+	a.debugPush(recorder, request)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("debugPush status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 }
 

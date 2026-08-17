@@ -19,9 +19,10 @@ func main() {
 
 	addr := envOr("MM_WEB_API_ADDR", ":8080")
 	app, err := server.New(conn, server.Config{
-		StaticDir:    envOr("MM_WEB_STATIC_DIR", "dist"),
-		DataDir:      envOr("MM_WEB_DATA_DIR", "data"),
-		VAPIDSubject: envOr("MM_WEB_VAPID_SUBJECT", "mailto:admin@example.com"),
+		StaticDir:      envOr("MM_WEB_STATIC_DIR", "dist"),
+		DataDir:        envOr("MM_WEB_DATA_DIR", "data"),
+		VAPIDSubject:   envOr("MM_WEB_VAPID_SUBJECT", "mailto:admin@example.com"),
+		DebugPushToken: os.Getenv("MM_WEB_DEBUG_PUSH_TOKEN"),
 	})
 	if err != nil {
 		log.Fatalf("initialize server: %v", err)

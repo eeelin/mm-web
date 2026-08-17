@@ -91,6 +91,11 @@ notification permission. The server creates VAPID keys on first startup and
 stores keys and browser subscriptions in `MM_WEB_DATA_DIR` (`/var/lib/mm-web`
 in the image), so that directory must persist across container replacements.
 
+For staging diagnostics, set `MM_WEB_DEBUG_PUSH_TOKEN` on the API and run
+`MM_WEB_DEBUG_PUSH_TOKEN=... scripts/debug-push.sh`. The endpoint is disabled
+when the token is unset and reports the subscription/delivery counts without
+exposing subscription details.
+
 ## CI and releases
 
 Pull requests and pushes to `main` run Go vet/tests (including the race

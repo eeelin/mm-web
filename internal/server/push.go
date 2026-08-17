@@ -105,16 +105,27 @@ func (p *pushService) unsubscribe(endpoint string) error {
 }
 
 func (p *pushService) notify(message message) {
-	payload, _ := json.Marshal(map[string]string{
+	p.send(map[string]string{
 		"title": "新信息",
 		"body":  "收到一条新信息",
 		"url":   "/?screen=messages",
 		"tag":   "sms-" + message.ID,
 	})
+}
+
+type pushReport struct {
+	Subscriptions int `json:"subscriptions"`
+	Delivered     int `json:"delivered"`
+	Failed        int `json:"failed"`
+}
+
+func (p *pushService) send(content map[string]string) pushReport {
+	payload, _ := json.Marshal(content)
 
 	p.mu.Lock()
 	subscriptions := append([]pushSubscription(nil), p.subscriptions...)
 	p.mu.Unlock()
+	report := pushReport{Subscriptions: len(subscriptions)}
 
 	for _, subscription := range subscriptions {
 		response, err := webpush.SendNotification(payload, &webpush.Subscription{
@@ -126,6 +137,7 @@ func (p *pushService) notify(message message) {
 		})
 		if err != nil {
 			log.Printf("send push notification: %v", err)
+			report.Failed++
 			continue
 		}
 		_ = response.Body.Close()
@@ -135,8 +147,12 @@ func (p *pushService) notify(message message) {
 			}
 		} else if response.StatusCode < 200 || response.StatusCode >= 300 {
 			log.Printf("push service returned %s", response.Status)
+			report.Failed++
+		} else {
+			report.Delivered++
 		}
 	}
+	return report
 }
 
 func (a *api) pushConfig(w http.ResponseWriter, _ *http.Request) {
@@ -144,7 +160,32 @@ func (a *api) pushConfig(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "消息推送未启用", errors.New("push service unavailable"))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"publicKey": a.push.keys.Public, "supported": true})
+	a.push.mu.Lock()
+	count := len(a.push.subscriptions)
+	a.push.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"publicKey": a.push.keys.Public, "supported": true, "subscriptions": count})
+}
+
+func (a *api) debugPush(w http.ResponseWriter, r *http.Request) {
+	if a.debugPushToken == "" {
+		writeError(w, http.StatusNotFound, "调试推送未启用", errors.New("MM_WEB_DEBUG_PUSH_TOKEN is not configured"))
+		return
+	}
+	if r.Header.Get("X-Debug-Token") != a.debugPushToken {
+		writeError(w, http.StatusUnauthorized, "调试令牌无效", errors.New("invalid debug token"))
+		return
+	}
+	report := a.push.send(map[string]string{
+		"title": "mmOS 推送测试",
+		"body":  "如果你看到这条通知，Web Push 链路工作正常。",
+		"url":   "/?screen=messages",
+		"tag":   fmt.Sprintf("debug-%d", time.Now().Unix()),
+	})
+	if report.Subscriptions == 0 {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "没有已注册的推送设备", "report": report})
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
 }
 
 func (a *api) subscribePush(w http.ResponseWriter, r *http.Request) {

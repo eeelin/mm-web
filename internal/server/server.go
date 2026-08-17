@@ -10,8 +10,9 @@ import (
 const mmService = "org.freedesktop.ModemManager1"
 
 type api struct {
-	conn *dbus.Conn
-	push *pushService
+	conn           *dbus.Conn
+	push           *pushService
+	debugPushToken string
 }
 
 type Server struct {
@@ -20,9 +21,10 @@ type Server struct {
 }
 
 type Config struct {
-	StaticDir    string
-	DataDir      string
-	VAPIDSubject string
+	StaticDir      string
+	DataDir        string
+	VAPIDSubject   string
+	DebugPushToken string
 }
 
 func New(conn *dbus.Conn, config Config) (*Server, error) {
@@ -31,7 +33,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &api{conn: conn, push: push}
+	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken}
 	handler := routes(a, config.StaticDir)
 	go a.watchIncomingMessages(ctx)
 	return &Server{handler: handler, cancel: cancel}, nil
@@ -54,6 +56,7 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("GET /api/push", a.pushConfig)
 	mux.HandleFunc("POST /api/push/subscriptions", a.subscribePush)
 	mux.HandleFunc("DELETE /api/push/subscriptions", a.unsubscribePush)
+	mux.HandleFunc("POST /api/debug/push", a.debugPush)
 	mux.Handle("/", staticFiles(staticDir))
 	return mux
 }
