@@ -50,6 +50,7 @@ The host must already have ModemManager installed and running.
 
 ## Documents
 
+- [Agent guidance](AGENTS.md)
 - [Project decisions](docs/project-decisions.md)
 - [Mobile Web design direction](docs/mobile-web-design.md)
 - [Deployment notes](docs/simple-container-deployment.md)
