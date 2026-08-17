@@ -81,7 +81,8 @@ The first implementation should focus on:
 - Modem details.
 - Signal and registration state.
 - Bearer connect and disconnect.
+- SMS conversation list, sending, and deletion through ModemManager.
 - Clear error reporting.
 
-SMS, SIM PIN operations, USSD, GPS/location, alerts, and historical analytics
+SIM PIN operations, USSD, GPS/location, alerts, and historical analytics
 can follow after the control loop is proven.

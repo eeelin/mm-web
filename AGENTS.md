@@ -83,11 +83,11 @@ Focus the first version on:
 - Signal values.
 - Bearer status.
 - Connect and disconnect.
+- Read, send, and delete SMS messages.
 - Recent events and errors.
 
 Defer until after the main control loop works:
 
-- SMS.
 - SIM PIN operations.
 - USSD.
 - GPS/location.
