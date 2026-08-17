@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,6 +83,13 @@ func (p *pushService) subscribe(subscription pushSubscription) error {
 	if subscription.Endpoint == "" || subscription.Keys.Auth == "" || subscription.Keys.P256dh == "" {
 		return errors.New("push subscription is incomplete")
 	}
+	endpoint, err := url.Parse(subscription.Endpoint)
+	if err != nil || endpoint.Scheme != "https" || !allowedPushHost(endpoint.Hostname()) {
+		return errors.New("push subscription endpoint is not trusted")
+	}
+	if len(subscription.Endpoint) > 2048 || len(subscription.Keys.Auth) > 256 || len(subscription.Keys.P256dh) > 256 {
+		return errors.New("push subscription is too large")
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for index := range p.subscriptions {
@@ -90,8 +98,20 @@ func (p *pushService) subscribe(subscription pushSubscription) error {
 			return p.saveSubscriptions()
 		}
 	}
+	if len(p.subscriptions) >= 32 {
+		return errors.New("push subscription limit reached")
+	}
 	p.subscriptions = append(p.subscriptions, subscription)
 	return p.saveSubscriptions()
+}
+
+func allowedPushHost(host string) bool {
+	for _, allowed := range []string{"web.push.apple.com", "fcm.googleapis.com", "updates.push.services.mozilla.com"} {
+		if host == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *pushService) unsubscribe(endpoint string) error {

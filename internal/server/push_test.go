@@ -19,7 +19,7 @@ func TestPushServicePersistsKeysAndSubscriptions(t *testing.T) {
 		t.Fatalf("normalized VAPID subject = %q", first.subject)
 	}
 	var subscription pushSubscription
-	subscription.Endpoint = "https://push.example/subscription"
+	subscription.Endpoint = "https://web.push.apple.com/subscription"
 	subscription.Keys.Auth = "auth"
 	subscription.Keys.P256dh = "p256dh"
 	if err := first.subscribe(subscription); err != nil {
@@ -42,6 +42,20 @@ func TestPushServicePersistsKeysAndSubscriptions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("VAPID key permissions = %v", info.Mode().Perm())
+	}
+}
+
+func TestPushServiceRejectsUntrustedEndpoint(t *testing.T) {
+	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subscription pushSubscription
+	subscription.Endpoint = "https://127.0.0.1/internal"
+	subscription.Keys.Auth = "auth"
+	subscription.Keys.P256dh = "p256dh"
+	if err := service.subscribe(subscription); err == nil {
+		t.Fatal("untrusted push endpoint was accepted")
 	}
 }
 
