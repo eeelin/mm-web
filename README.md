@@ -42,7 +42,7 @@ Phone and Messages icons are placeholders for later releases.
 ```yaml
 services:
   mm-web:
-    build: .
+    image: yuhuntero/mm-web:latest
     ports:
       - "8080:8080"
     volumes:
@@ -53,6 +53,11 @@ services:
 ```
 
 The host must already have ModemManager installed and running.
+
+Published images support `linux/amd64` and `linux/arm64`. Pull the current main
+branch build with `docker pull yuhuntero/mm-web:latest`. Version tags such as
+`v1.2.3` publish `1.2.3` and `1.2` image tags; every release also gets an
+immutable `sha-<commit>` tag.
 
 For local development, install the frontend dependencies and start the Vite UI
 and Go API together:
@@ -65,6 +70,20 @@ npm run dev
 The UI is served on `http://localhost:5173`; Vite proxies `/api` to the Go
 server on `127.0.0.1:8080`. The API currently exposes `GET /api/health` and
 `GET /api/modems`. Go and access to the host system D-Bus are required.
+
+## CI and releases
+
+Pull requests and pushes to `main` run Go vet/tests (including the race
+detector), build the frontend, and build the container without publishing it.
+Pushes to `main`, version tags matching `v*`, and manual release runs publish a
+multi-architecture image to `yuhuntero/mm-web` on Docker Hub after all tests
+pass.
+
+Configure these GitHub Actions repository secrets before publishing:
+
+- `DOCKERHUB_USERNAME`: Docker Hub user allowed to push `yuhuntero/mm-web`.
+- `DOCKERHUB_TOKEN`: Docker Hub personal access token; do not use the account
+  password.
 
 ## Documents
 
