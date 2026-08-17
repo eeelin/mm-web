@@ -18,8 +18,16 @@ func main() {
 	defer conn.Close()
 
 	addr := envOr("MM_WEB_API_ADDR", ":8080")
-	handler := server.NewHandler(conn, envOr("MM_WEB_STATIC_DIR", "dist"))
-	httpServer := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 35 * time.Second}
+	app, err := server.New(conn, server.Config{
+		StaticDir:    envOr("MM_WEB_STATIC_DIR", "dist"),
+		DataDir:      envOr("MM_WEB_DATA_DIR", "data"),
+		VAPIDSubject: envOr("MM_WEB_VAPID_SUBJECT", "mailto:admin@example.com"),
+	})
+	if err != nil {
+		log.Fatalf("initialize server: %v", err)
+	}
+	defer app.Close()
+	httpServer := &http.Server{Addr: addr, Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 35 * time.Second}
 	log.Printf("mm-web API listening on http://%s", addr)
 	log.Fatal(httpServer.ListenAndServe())
 }

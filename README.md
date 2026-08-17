@@ -38,8 +38,8 @@ The current development UI presents this information as a full-screen virtual
 phone. System Settings opens the detected modem list and device details. The
 Messages app groups real SMS records into conversations and supports composing,
 sending, and deleting conversations. It refreshes while the Messages app is
-open; background Web Push notifications are not implemented yet. Phone remains
-a placeholder.
+open and can deliver privacy-preserving Web Push notifications for newly
+received SMS messages while the frontend is closed. Phone remains a placeholder.
 
 ## Deployment Sketch
 
@@ -51,6 +51,7 @@ services:
       - "8080:8080"
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      - mm-web-data:/var/lib/mm-web
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     restart: unless-stopped
@@ -81,8 +82,14 @@ npm run dev
 The UI is served on `http://localhost:5173`; Vite proxies `/api` to the Go
 server on `127.0.0.1:8080`. The API exposes `GET /api/health`,
 `GET /api/modems`, `GET /api/messages`, `POST /api/messages`, and
-`DELETE /api/messages/{id}`. Go and access to the host system D-Bus are
-required.
+`DELETE /api/messages/{id}`, plus push subscription endpoints under
+`/api/push`. Go and access to the host system D-Bus are required.
+
+Web Push requires HTTPS outside localhost. On iPhone and iPad, add mmOS to the
+Home Screen, open that installed app, enter Messages, and tap the bell to grant
+notification permission. The server creates VAPID keys on first startup and
+stores keys and browser subscriptions in `MM_WEB_DATA_DIR` (`/var/lib/mm-web`
+in the image), so that directory must persist across container replacements.
 
 ## CI and releases
 

@@ -5,7 +5,7 @@ import { Messages } from './Messages';
 type Modem = { id: string; name: string; model: string; state: string; network: string; tech: string; signal: number; sim: string; imei: string; firmware: string; port: string };
 
 export function App() {
-  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'>('home');
+  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'>(() => new URLSearchParams(location.search).get('screen') === 'messages' ? 'messages' : 'home');
   const [modems, setModems] = useState<Modem[]>([]);
   const [selected, setSelected] = useState<Modem | null>(null);
   const [error, setError] = useState('');

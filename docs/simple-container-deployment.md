@@ -20,6 +20,7 @@ services:
       - "8080:8080"
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro
+      - mm-web-data:/var/lib/mm-web
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     restart: unless-stopped
@@ -31,6 +32,23 @@ This example is available as `compose.yaml` in the repository root. Run
 Use a numbered image tag in production when reproducibility matters. The
 release workflow publishes `latest` from `main`, semantic-version tags from Git
 tags such as `v1.2.3`, and an immutable `sha-<commit>` tag for every image.
+
+## Background message notifications
+
+mm-web checks ModemManager for newly received SMS records in the backend and
+sends a standards-based Web Push notification to subscribed browsers. The
+notification intentionally says only that a new message arrived; it does not
+include the sender or SMS body.
+
+The application generates a VAPID key pair on first startup. Persist the
+`/var/lib/mm-web` volume or existing browser subscriptions will stop working
+after the keys change. `MM_WEB_VAPID_SUBJECT` may be set to an administrator
+contact such as `mailto:admin@example.com`.
+
+The public site must use HTTPS. For iOS/iPadOS, install the site to the Home
+Screen first, open the installed mmOS app, then enable notifications from the
+Messages screen. Browser tabs on iOS cannot subscribe without the Home Screen
+installation.
 
 ## Permission Model
 

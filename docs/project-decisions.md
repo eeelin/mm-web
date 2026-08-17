@@ -96,3 +96,11 @@ Within `internal/server`, route composition, shared D-Bus access, response and
 static-file helpers, and each product area live in separate files. New backend
 features should normally add a focused feature file instead of growing the
 entry point or introducing a package before it has a distinct responsibility.
+
+## 9. Deliver incoming SMS alerts with standards-based Web Push
+
+Decision: the backend detects newly received ModemManager SMS records even when
+the frontend is closed and sends a Web Push notification through persisted
+browser subscriptions. Notifications do not include the sender or message
+body. VAPID keys and subscriptions use a small file-backed store in the
+persistent application data directory; a database is not required yet.
