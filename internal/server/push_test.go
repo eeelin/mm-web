@@ -15,6 +15,9 @@ func TestPushServicePersistsKeysAndSubscriptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if first.subject != "test@example.com" {
+		t.Fatalf("normalized VAPID subject = %q", first.subject)
+	}
 	var subscription pushSubscription
 	subscription.Endpoint = "https://push.example/subscription"
 	subscription.Keys.Auth = "auth"

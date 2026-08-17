@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,7 +45,8 @@ func newPushService(dir, subject string) (*pushService, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create push data directory: %w", err)
 	}
-	service := &pushService{dir: dir, subject: subject}
+	// webpush-go adds the mailto: scheme for non-HTTPS subjects itself.
+	service := &pushService{dir: dir, subject: strings.TrimPrefix(subject, "mailto:")}
 	if err := service.loadOrCreateKeys(); err != nil {
 		return nil, err
 	}
@@ -140,13 +143,14 @@ func (p *pushService) send(content map[string]string) pushReport {
 			report.Failed++
 			continue
 		}
+		responseBody, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
 		_ = response.Body.Close()
 		if response.StatusCode == http.StatusGone || response.StatusCode == http.StatusNotFound {
 			if err := p.unsubscribe(subscription.Endpoint); err != nil {
 				log.Printf("remove expired push subscription: %v", err)
 			}
 		} else if response.StatusCode < 200 || response.StatusCode >= 300 {
-			log.Printf("push service returned %s", response.Status)
+			log.Printf("push service returned %s: %s", response.Status, responseBody)
 			report.Failed++
 		} else {
 			report.Delivered++
