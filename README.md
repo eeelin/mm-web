@@ -57,6 +57,9 @@ services:
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     restart: unless-stopped
+
+volumes:
+  mm-web-data:
 ```
 
 The host must already have ModemManager installed and running.

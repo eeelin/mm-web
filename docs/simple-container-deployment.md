@@ -24,6 +24,9 @@ services:
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     restart: unless-stopped
+
+volumes:
+  mm-web-data:
 ```
 
 This example is available as `compose.yaml` in the repository root. Run
