@@ -1,3 +1,11 @@
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(Promise.all([
@@ -8,14 +16,14 @@ self.addEventListener('push', event => {
       badge: '/icons/badge-96.png',
       data: {url: data.url || '/?screen=messages'}
     }),
-    self.registration.setAppBadge ? self.registration.setAppBadge() : Promise.resolve()
+    self.navigator.setAppBadge ? self.navigator.setAppBadge(1) : Promise.resolve()
   ]));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil((async () => {
-    if (self.registration.clearAppBadge) await self.registration.clearAppBadge();
+    if (self.navigator.clearAppBadge) await self.navigator.clearAppBadge();
     const url = new URL(event.notification.data?.url || '/?screen=messages', self.location.origin).href;
     const windows = await clients.matchAll({type:'window',includeUncontrolled:true});
     const existing = windows[0];
