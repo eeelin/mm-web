@@ -1,0 +1,11 @@
+services:
+  mm-web:
+    image: yuhuntero/mm-web:latest
+    container_name: mm-web
+    ports:
+      - "8080:8080"
+    volumes:
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro
+    environment:
+      DBUS_SYSTEM_BUS_ADDRESS: unix:path=/run/dbus/system_bus_socket
+    restart: unless-stopped

@@ -54,6 +54,13 @@ services:
 
 The host must already have ModemManager installed and running.
 
+The repository includes the same configuration in `compose.yaml`. Start it
+with:
+
+```bash
+docker compose up -d
+```
+
 Published images support `linux/amd64` and `linux/arm64`. Pull the current main
 branch build with `docker pull yuhuntero/mm-web:latest`. Version tags such as
 `v1.2.3` publish `1.2.3` and `1.2` image tags; every release also gets an

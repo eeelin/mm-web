@@ -19,11 +19,14 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     restart: unless-stopped
 ```
+
+This example is available as `compose.yaml` in the repository root. Run
+`docker compose up -d` to start it and open `http://localhost:8080`.
 
 Use a numbered image tag in production when reproducibility matters. The
 release workflow publishes `latest` from `main`, semantic-version tags from Git
