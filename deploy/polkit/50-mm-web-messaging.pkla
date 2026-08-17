@@ -1,0 +1,6 @@
+[Allow mm-web to manage SMS]
+Identity=unix-group:mm-web
+Action=org.freedesktop.ModemManager1.Messaging
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
