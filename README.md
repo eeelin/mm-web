@@ -37,7 +37,9 @@ ModemManager, udev, and the modem devices.
 The current development UI presents this information as a full-screen virtual
 phone. System Settings opens the detected modem list and device details. The
 Messages app groups real SMS records into conversations and supports composing,
-sending, and deleting conversations; Phone remains a placeholder.
+sending, and deleting conversations. It refreshes while the Messages app is
+open; background Web Push notifications are not implemented yet. Phone remains
+a placeholder.
 
 ## Deployment Sketch
 
@@ -77,8 +79,10 @@ npm run dev
 ```
 
 The UI is served on `http://localhost:5173`; Vite proxies `/api` to the Go
-server on `127.0.0.1:8080`. The API exposes health, modem inventory, and SMS
-list/send/delete endpoints. Go and access to the host system D-Bus are required.
+server on `127.0.0.1:8080`. The API exposes `GET /api/health`,
+`GET /api/modems`, `GET /api/messages`, `POST /api/messages`, and
+`DELETE /api/messages/{id}`. Go and access to the host system D-Bus are
+required.
 
 ## CI and releases
 

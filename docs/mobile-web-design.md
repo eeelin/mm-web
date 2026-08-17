@@ -24,6 +24,8 @@ The virtual desktop is the first screen. It shows the active cellular network
 at a glance and provides System Settings, Phone, Messages, and About icons.
 Messages opens the real SMS experience; Phone and About remain inactive until
 those capabilities ship.
+The Messages app refreshes while it is open. Background Web Push notifications
+and unread badges remain future work.
 Operational modem detail remains one tap away through System Settings instead
 of being presented as a marketing dashboard. On mobile browsers, the product
 fills the viewport without a simulated device frame, duplicate status bar, or
