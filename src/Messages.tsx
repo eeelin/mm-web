@@ -68,6 +68,7 @@ export function Messages({onClose}:{onClose:()=>void}) {
 
   useEffect(() => {
     load();
+    if ('clearAppBadge' in navigator) navigator.clearAppBadge();
     const id = window.setInterval(load, 5000);
     return () => window.clearInterval(id);
   }, []);

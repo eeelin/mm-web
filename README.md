@@ -40,6 +40,8 @@ Messages app groups real SMS records into conversations and supports composing,
 sending, and deleting conversations. It refreshes while the Messages app is
 open and can deliver privacy-preserving Web Push notifications for newly
 received SMS messages while the frontend is closed. Phone remains a placeholder.
+Incoming pushes also mark the installed PWA icon; opening Messages or tapping
+the notification clears the app badge.
 
 ## Deployment Sketch
 

@@ -15,6 +15,7 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil((async () => {
+    if (self.registration.clearAppBadge) await self.registration.clearAppBadge();
     const url = new URL(event.notification.data?.url || '/?screen=messages', self.location.origin).href;
     const windows = await clients.matchAll({type:'window',includeUncontrolled:true});
     const existing = windows[0];
