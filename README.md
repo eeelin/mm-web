@@ -23,6 +23,8 @@ ModemManager, udev, and the modem devices.
 
 ## MVP Scope
 
+- Read live modem inventory and status directly from the host ModemManager
+  service over system D-Bus.
 - List detected modems.
 - Show modem registration, access technology, operator, SIM status, and bearer
   status.
@@ -30,6 +32,10 @@ ModemManager, udev, and the modem devices.
 - Connect and disconnect a modem bearer.
 - Surface ModemManager errors in a form that is useful during field debugging.
 - Provide a mobile-first overview page that works well on a phone.
+
+The current development UI presents this information as a full-screen virtual
+phone. System Settings opens the detected modem list and device details; the
+Phone and Messages icons are placeholders for later releases.
 
 ## Deployment Sketch
 
@@ -47,6 +53,18 @@ services:
 ```
 
 The host must already have ModemManager installed and running.
+
+For local development, install the frontend dependencies and start the Vite UI
+and Go API together:
+
+```bash
+npm install
+npm run dev
+```
+
+The UI is served on `http://localhost:5173`; Vite proxies `/api` to the Go
+server on `127.0.0.1:8080`. The API currently exposes `GET /api/health` and
+`GET /api/modems`. Go and access to the host system D-Bus are required.
 
 ## Documents
 

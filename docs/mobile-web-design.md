@@ -11,11 +11,22 @@ connection problems without needing a terminal.
 - Calm.
 - Appliance-like.
 - Touch-friendly.
+- The product shell is a virtual phone: users enter a familiar home screen and
+  open focused system apps. The first app is System Settings, where detected
+  modems can be inspected and selected.
 
 Avoid large hero sections, decorative cards, gradient backgrounds, marketing
 copy, or empty dashboard ornamentation.
 
 ## First Screen
+
+The virtual desktop is the first screen. It shows the active cellular network
+at a glance and provides System Settings, Phone, Messages, and About icons;
+Phone, Messages, and About remain inactive until those capabilities ship.
+Operational modem detail remains one tap away through System Settings instead
+of being presented as a marketing dashboard. On mobile browsers, the product
+fills the viewport without a simulated device frame, duplicate status bar, or
+decorative home indicator.
 
 The first screen should immediately answer:
 
