@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, Edit3, MessageSquare, Search, SendHorizontal, Trash2 } from 'lucide-react';
+import { Bell, BellRing, ChevronLeft, Edit3, MessageSquare, Search, SendHorizontal, Trash2 } from 'lucide-react';
 
 type Message = {
   id: string;
@@ -21,6 +21,38 @@ export function Messages({onClose}:{onClose:()=>void}) {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [pushState, setPushState] = useState<'loading'|'unsupported'|'off'|'on'|'denied'>('loading');
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      setPushState('unsupported'); return;
+    }
+    navigator.serviceWorker.ready.then(registration => registration.pushManager.getSubscription())
+      .then(subscription => setPushState(subscription ? 'on' : Notification.permission === 'denied' ? 'denied' : 'off'))
+      .catch(() => setPushState('unsupported'));
+  }, []);
+
+  const togglePush = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        await fetch('/api/push/subscriptions', {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:existing.endpoint})});
+        await existing.unsubscribe(); setPushState('off'); return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setPushState('denied'); return; }
+      const configResponse = await fetch('/api/push', {cache:'no-store'});
+      if (!configResponse.ok) throw new Error('服务端推送尚未就绪');
+      const {publicKey} = await configResponse.json() as {publicKey:string};
+      const subscription = await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
+      const response = await fetch('/api/push/subscriptions', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(subscription)});
+      if (!response.ok) { await subscription.unsubscribe(); throw new Error('保存推送订阅失败'); }
+      setPushState('on');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '启用消息通知失败');
+    }
+  };
 
   const load = async () => {
     try {
@@ -36,6 +68,7 @@ export function Messages({onClose}:{onClose:()=>void}) {
 
   useEffect(() => {
     load();
+    if ('clearAppBadge' in navigator) navigator.clearAppBadge();
     const id = window.setInterval(load, 5000);
     return () => window.clearInterval(id);
   }, []);
@@ -75,8 +108,11 @@ export function Messages({onClose}:{onClose:()=>void}) {
   };
 
   if (view === 'list') return <div className="messages-page">
-    <MessagesBar title="信息" onBack={onClose} action={<button aria-label="新信息" onClick={()=>{setView('compose');setNumber('');setDraft('')}}><Edit3/></button>}/>
+    <MessagesBar title="信息" onBack={onClose} action={<div className="messages-actions"><button aria-label={pushState==='on'?'关闭消息通知':'开启消息通知'} onClick={togglePush} disabled={pushState==='loading'||pushState==='unsupported'}>{pushState==='on'?<BellRing/>:<Bell/>}</button><button aria-label="新信息" onClick={()=>{setView('compose');setNumber('');setDraft('')}}><Edit3/></button></div>}/>
     <div className="messages-content">
+      {pushState==='off' && <button className="push-tip" onClick={togglePush}><Bell/><span><b>开启新信息通知</b><small>前端关闭后也能收到提醒，不显示短信正文。</small></span></button>}
+      {pushState==='denied' && <p className="push-note">通知权限已关闭，请在系统设置中允许 mmOS 通知。</p>}
+      {pushState==='unsupported' && <p className="push-note">iPhone 请先将 mmOS 添加到主屏幕，再从主屏幕打开并开启通知。</p>}
       <label className="message-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="搜索"/></label>
       {error && <p className="messages-error">{error}</p>}
       <div className="conversation-list">{visible.map(item=><button key={item.number} className="conversation" onClick={()=>openThread(item.number)}>
@@ -102,9 +138,10 @@ export function Messages({onClose}:{onClose:()=>void}) {
   </div>;
 }
 
-function MessagesBar({title,subtitle,onBack,action}:{title:string;subtitle?:string;onBack:()=>void;action?:React.ReactNode}) { return <header className="messages-bar"><button aria-label="返回" onClick={onBack}><ChevronLeft/></button><div><h1>{title}</h1>{subtitle&&subtitle!==title&&<small>{subtitle}</small>}</div><span>{action}</span></header> }
+function MessagesBar({title,subtitle,onBack,action}:{title:string;subtitle?:string;onBack:()=>void;action?:React.ReactNode}) { return <header className="messages-bar"><button aria-label="返回" onClick={onBack}><ChevronLeft/></button><div><h1>{title}</h1>{subtitle&&subtitle!==title&&<small>{subtitle}</small>}</div><span className="messages-action-slot">{action}</span></header> }
 function Composer({value,onChange,onSend,disabled}:{value:string;onChange:(value:string)=>void;onSend:()=>void;disabled:boolean}) { return <div className="composer"><textarea rows={1} value={value} onChange={event=>onChange(event.target.value)} placeholder="信息" onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();onSend()}}}/><button aria-label="发送" onClick={onSend} disabled={disabled||!value.trim()}><SendHorizontal/></button></div> }
 function avatarText(number:string) { return number.replace(/^\+86/,'').slice(0,2) || '?' }
 function displayNumber(number:string) { return ({'10086':'中国移动','10086100':'中国移动服务'} as Record<string,string>)[number] ?? number }
 function stateLabel(state:string) { return ({sent:'已发送',sending:'发送中',stored:'待发送'} as Record<string,string>)[state] ?? state }
 function formatTime(value:string) { if(!value)return ''; const date=new Date(value.replace(/([+-]\d{2})$/,'$1:00')); if(Number.isNaN(date.getTime()))return value; return date.toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}) }
+function urlBase64ToUint8Array(value:string) { const padding='='.repeat((4-value.length%4)%4); const raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...raw].map(char=>char.charCodeAt(0))); }
