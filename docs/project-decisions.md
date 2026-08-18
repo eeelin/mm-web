@@ -104,3 +104,7 @@ the frontend is closed and sends a Web Push notification through persisted
 browser subscriptions. Notifications do not include the sender or message
 body. VAPID keys and subscriptions use a small file-backed store in the
 persistent application data directory; a database is not required yet.
+
+Message previews remain disabled by default. Operators can enable them from
+System Settings; preview notifications use a known sender name when one becomes
+available, otherwise the phone number, and include the SMS text as the body.

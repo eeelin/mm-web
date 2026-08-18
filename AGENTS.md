@@ -84,7 +84,8 @@ Focus the first version on:
 - Bearer status.
 - Connect and disconnect.
 - Read, send, and delete SMS messages.
-- Notify installed PWAs about incoming SMS without exposing message content.
+- Notify installed PWAs about incoming SMS. Keep notification previews private
+  by default and require an explicit setting before exposing sender or content.
 - Recent events and errors.
 
 Defer until after the main control loop works:

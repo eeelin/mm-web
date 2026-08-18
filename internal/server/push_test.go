@@ -59,6 +59,38 @@ func TestPushServiceRejectsUntrustedEndpoint(t *testing.T) {
 	}
 }
 
+func TestPushSettingsPersistAndControlMessagePreview(t *testing.T) {
+	dir := t.TempDir()
+	service, err := newPushService(dir, "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.updateSettings(pushSettings{ShowMessageContent: true}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := newPushService(dir, "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.settings.ShowMessageContent {
+		t.Fatal("message preview setting was not persisted")
+	}
+
+	message := message{ID: "7", Number: "13800138000", Text: "验证码 1234"}
+	private := pushContent(message, false)
+	if private["title"] != "新信息" || private["body"] != "收到一条新信息" {
+		t.Fatalf("private push = %#v", private)
+	}
+	preview := pushContent(message, true)
+	if preview["title"] != message.Number || preview["body"] != message.Text {
+		t.Fatalf("preview push = %#v", preview)
+	}
+	message.SenderName = "Alice"
+	if named := pushContent(message, true); named["title"] != "Alice" {
+		t.Fatalf("named preview = %#v", named)
+	}
+}
+
 func TestDebugPushReportsMissingSubscription(t *testing.T) {
 	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
 	if err != nil {

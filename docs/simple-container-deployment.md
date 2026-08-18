@@ -39,9 +39,11 @@ tags such as `v1.2.3`, and an immutable `sha-<commit>` tag for every image.
 ## Background message notifications
 
 mm-web checks ModemManager for newly received SMS records in the backend and
-sends a standards-based Web Push notification to subscribed browsers. The
-notification intentionally says only that a new message arrived; it does not
-include the sender or SMS body.
+sends a standards-based Web Push notification to subscribed browsers. By
+default, the notification says only that a new message arrived. Operators can
+explicitly enable message previews in System Settings; previews use a known
+sender name when available, otherwise the phone number, and include the SMS
+body. Preview content may be visible on the lock screen.
 
 The application generates a VAPID key pair on first startup. Persist the
 `/var/lib/mm-web` volume or existing browser subscriptions will stop working
