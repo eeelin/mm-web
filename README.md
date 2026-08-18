@@ -45,6 +45,10 @@ the notification clears the app badge.
 System Settings includes a message-preview switch. It is off by default; when
 enabled, notifications use the sender phone number as the title and SMS text as
 the body. The setting is stored in the persistent application data directory.
+The About screen reports build and runtime details, ModemManager and Push
+status, PWA/notification state, and privacy behavior. Its diagnostic copy action
+intentionally excludes phone numbers, IMEI values, SMS text, Push endpoints,
+and keys.
 
 ## Deployment Sketch
 

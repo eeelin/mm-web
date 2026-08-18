@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -13,6 +14,7 @@ type api struct {
 	conn           *dbus.Conn
 	push           *pushService
 	debugPushToken string
+	startedAt      time.Time
 }
 
 type Server struct {
@@ -33,7 +35,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken}
+	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken, startedAt: time.Now()}
 	handler := routes(a, config.StaticDir)
 	go a.watchIncomingMessages(ctx)
 	return &Server{handler: handler, cancel: cancel}, nil
@@ -58,6 +60,7 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("DELETE /api/push/subscriptions", a.unsubscribePush)
 	mux.HandleFunc("GET /api/settings/push", a.getPushSettings)
 	mux.HandleFunc("PUT /api/settings/push", a.updatePushSettings)
+	mux.HandleFunc("GET /api/about", a.about)
 	mux.HandleFunc("POST /api/debug/push", a.debugPush)
 	mux.Handle("/", staticFiles(staticDir))
 	return mux

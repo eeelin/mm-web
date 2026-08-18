@@ -11,11 +11,12 @@ RUN npm run build
 
 FROM golang:1.26-alpine AS backend
 WORKDIR /src
+ARG COMMIT=""
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mm-web ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/eeelin/mm-web/internal/server.Commit=${COMMIT}" -o /out/mm-web ./cmd/server
 
 FROM alpine:3.23
 RUN apk add --no-cache ca-certificates
