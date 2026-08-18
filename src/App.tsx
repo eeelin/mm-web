@@ -62,7 +62,7 @@ function Home({onOpen,onPhone,onMessages,onAbout,active,error}:{onOpen:()=>void;
   <header className="home-head"><p>8月17日 · 星期一</p><h1>早上好</h1></header>
   <section className="network-widget"><div><small>移动网络</small><h2>{active?.network ?? (error ? '服务不可用' : '正在读取设备')}</h2><p><span className="dot"/> {error || (active ? `${active.tech} · 信号 ${active.signal}%` : '未检测到调制解调器')}</p></div><SignalBars value={active?.signal ?? 0}/></section>
   <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/></span><b>电话</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/></span><b>信息</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
-  <div className="dock"><button className="dock-icon phone-icon" onClick={onPhone}><Phone/></button><button className="dock-icon" onClick={onMessages}><MessageSquare/></button><button className="dock-icon" onClick={onOpen}><Settings/></button></div>
+  <div className="dock"><button className="dock-icon phone-icon" onClick={onPhone}><Phone/></button><button className="dock-icon" onClick={onMessages}><MessageSquare/></button><button className="dock-icon settings-icon" onClick={onOpen}><Settings/></button></div>
 </div>}
 
 function Top({title,onBack,eyebrow}:{title:string;onBack:()=>void;eyebrow?:string}) {return <header className="appbar"><button onClick={onBack} aria-label="返回"><ChevronLeft/></button><div>{eyebrow&&<small>{eyebrow}</small>}<h1>{title}</h1></div><span/></header>}
