@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -11,10 +12,12 @@ import (
 const mmService = "org.freedesktop.ModemManager1"
 
 type api struct {
-	conn           *dbus.Conn
-	push           *pushService
-	debugPushToken string
-	startedAt      time.Time
+	conn            *dbus.Conn
+	push            *pushService
+	debugPushToken  string
+	startedAt       time.Time
+	callSignalsOnce sync.Once
+	callSignalsErr  error
 }
 
 type Server struct {

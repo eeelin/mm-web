@@ -52,12 +52,7 @@ func (a *api) callEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "实时通话状态不可用", errors.New("streaming unsupported"))
 		return
 	}
-	options := []dbus.MatchOption{
-		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
-		dbus.WithMatchMember("PropertiesChanged"),
-		dbus.WithMatchPathNamespace(dbus.ObjectPath("/org/freedesktop/ModemManager1/Call")),
-	}
-	if err := a.conn.AddMatchSignal(options...); err != nil {
+	if err := a.enableCallSignals(); err != nil {
 		writeError(w, http.StatusServiceUnavailable, "监听通话状态失败", err)
 		return
 	}
@@ -81,6 +76,27 @@ func (a *api) callEvents(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+func (a *api) enableCallSignals() error {
+	a.callSignalsOnce.Do(func() {
+		properties := []dbus.MatchOption{
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+			dbus.WithMatchPathNamespace(dbus.ObjectPath("/org/freedesktop/ModemManager1/Call")),
+		}
+		if err := a.conn.AddMatchSignal(properties...); err != nil {
+			a.callSignalsErr = err
+			return
+		}
+		stateChanged := []dbus.MatchOption{
+			dbus.WithMatchInterface(callInterface),
+			dbus.WithMatchMember("StateChanged"),
+			dbus.WithMatchPathNamespace(dbus.ObjectPath("/org/freedesktop/ModemManager1/Call")),
+		}
+		a.callSignalsErr = a.conn.AddMatchSignal(stateChanged...)
+	})
+	return a.callSignalsErr
 }
 
 func (a *api) createCall(w http.ResponseWriter, r *http.Request) {
