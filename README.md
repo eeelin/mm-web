@@ -29,6 +29,9 @@ ModemManager, udev, and the modem devices.
 - List detected modems.
 - Show modem registration, access technology, operator, SIM status, and bearer
   status.
+- Show mmcli-style device diagnostics including identifiers, power and
+  registration state, supported modes and IP families, ports, drivers, plugin,
+  own numbers, and SIM unlock retries.
 - Show signal values such as RSSI, RSRP, RSRQ, and SINR when available.
 - Connect and disconnect a modem bearer.
 - Surface ModemManager errors in a form that is useful during field debugging.
