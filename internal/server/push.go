@@ -142,6 +142,19 @@ func (p *pushService) notify(message message) {
 	p.send(pushContent(message, showContent))
 }
 
+func (p *pushService) notifyIncomingCall(call voiceCall) {
+	p.send(incomingCallPushContent(call))
+}
+
+func incomingCallPushContent(call voiceCall) map[string]string {
+	return map[string]string{
+		"title": "来电",
+		"body":  "有新的来电",
+		"url":   "/?screen=phone",
+		"tag":   "call-" + call.ModemID + "-" + call.ID,
+	}
+}
+
 func pushContent(message message, showContent bool) map[string]string {
 	content := map[string]string{
 		"title": "新信息",

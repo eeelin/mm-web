@@ -155,6 +155,21 @@ func (a *api) hangupCall(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *api) acceptCall(w http.ResponseWriter, r *http.Request) {
+	path, ok := callPathFromID(r.PathValue("id"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, "呼叫编号无效", errors.New("invalid call id"))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	if err := a.conn.Object(mmService, path).CallWithContext(ctx, callInterface+".Accept", 0).Err; err != nil {
+		writeCallError(w, "接听失败", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *api) sendCallDTMF(w http.ResponseWriter, r *http.Request) {
 	path, ok := callPathFromID(r.PathValue("id"))
 	if !ok {

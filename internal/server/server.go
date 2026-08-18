@@ -12,13 +12,14 @@ import (
 const mmService = "org.freedesktop.ModemManager1"
 
 type api struct {
-	conn            *dbus.Conn
-	push            *pushService
-	debugPushToken  string
-	startedAt       time.Time
-	callSignalsOnce sync.Once
-	callSignalsErr  error
-	callHistory     *callHistoryStore
+	conn             *dbus.Conn
+	push             *pushService
+	debugPushToken   string
+	startedAt        time.Time
+	callSignalsOnce  sync.Once
+	callSignalsErr   error
+	callHistory      *callHistoryStore
+	incomingNotified map[string]bool
 }
 
 type Server struct {
@@ -39,7 +40,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken, startedAt: time.Now()}
+	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken, startedAt: time.Now(), incomingNotified: make(map[string]bool)}
 	a.callHistory, err = newCallHistoryStore(config.DataDir)
 	if err != nil {
 		cancel()
@@ -71,6 +72,7 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("DELETE /api/call-history", a.clearCallHistory)
 	mux.HandleFunc("POST /api/calls", a.createCall)
 	mux.HandleFunc("POST /api/calls/{id}/hangup", a.hangupCall)
+	mux.HandleFunc("POST /api/calls/{id}/accept", a.acceptCall)
 	mux.HandleFunc("POST /api/calls/{id}/dtmf", a.sendCallDTMF)
 	mux.HandleFunc("GET /api/push", a.pushConfig)
 	mux.HandleFunc("POST /api/push/subscriptions", a.subscribePush)

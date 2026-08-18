@@ -47,6 +47,8 @@ ModemManager Voice dialing, live call state, hangup, and in-call DTMF controls;
 audio remains on the host/modem voice path rather than passing through the browser.
 Recent incoming and outgoing calls are retained in the configured data directory,
 including missed/failed outcomes and connected-call duration.
+Incoming calls open a full-screen answer/reject view while the app is active and
+send a privacy-preserving Web Push notification when a subscribed PWA is closed.
 Incoming pushes also mark the installed PWA icon; opening Messages or tapping
 the notification clears the app badge.
 System Settings includes a message-preview switch. It is off by default; when

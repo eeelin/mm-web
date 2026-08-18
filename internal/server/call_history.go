@@ -164,9 +164,23 @@ func (a *api) watchCallHistory(ctx context.Context) {
 				var calls []voiceCall
 				calls, err = a.collectCalls(readCtx, objects)
 				if err == nil {
+					currentCalls := make(map[string]bool, len(calls))
 					for _, call := range calls {
 						if saveErr := a.callHistory.observe(call, now); saveErr != nil {
 							log.Printf("save call history: %v", saveErr)
+						}
+						key := callHistoryKey(call.ModemID, call.ID)
+						currentCalls[key] = true
+						if call.Direction == "incoming" && call.State == "ringing-in" && !a.incomingNotified[key] {
+							a.incomingNotified[key] = true
+							if a.push != nil {
+								go a.push.notifyIncomingCall(call)
+							}
+						}
+					}
+					for key := range a.incomingNotified {
+						if !currentCalls[key] {
+							delete(a.incomingNotified, key)
 						}
 					}
 				}

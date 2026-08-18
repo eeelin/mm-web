@@ -91,6 +91,16 @@ func TestPushSettingsPersistAndControlMessagePreview(t *testing.T) {
 	}
 }
 
+func TestIncomingCallPushHidesNumberAndOpensPhone(t *testing.T) {
+	content := incomingCallPushContent(voiceCall{ID: "9", ModemID: "0", Number: "13800138000"})
+	if content["title"] != "来电" || content["body"] != "有新的来电" || content["url"] != "/?screen=phone" {
+		t.Fatalf("incoming call push = %#v", content)
+	}
+	if content["title"] == "13800138000" || content["body"] == "13800138000" {
+		t.Fatal("incoming call push leaked the phone number")
+	}
+}
+
 func TestDebugPushReportsMissingSubscription(t *testing.T) {
 	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
 	if err != nil {
