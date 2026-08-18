@@ -23,13 +23,14 @@ const (
 var phoneNumberPattern = regexp.MustCompile(`^\+?[0-9]{3,20}$`)
 
 type message struct {
-	ID        string `json:"id"`
-	ModemID   string `json:"modemId"`
-	Number    string `json:"number"`
-	Text      string `json:"text"`
-	Direction string `json:"direction"`
-	State     string `json:"state"`
-	Timestamp string `json:"timestamp"`
+	ID         string `json:"id"`
+	ModemID    string `json:"modemId"`
+	Number     string `json:"number"`
+	SenderName string `json:"senderName,omitempty"`
+	Text       string `json:"text"`
+	Direction  string `json:"direction"`
+	State      string `json:"state"`
+	Timestamp  string `json:"timestamp"`
 }
 
 func (a *api) messages(w http.ResponseWriter, r *http.Request) {

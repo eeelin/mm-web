@@ -56,6 +56,8 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("GET /api/push", a.pushConfig)
 	mux.HandleFunc("POST /api/push/subscriptions", a.subscribePush)
 	mux.HandleFunc("DELETE /api/push/subscriptions", a.unsubscribePush)
+	mux.HandleFunc("GET /api/settings/push", a.getPushSettings)
+	mux.HandleFunc("PUT /api/settings/push", a.updatePushSettings)
 	mux.HandleFunc("POST /api/debug/push", a.debugPush)
 	mux.Handle("/", staticFiles(staticDir))
 	return mux

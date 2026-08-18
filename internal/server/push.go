@@ -37,6 +37,11 @@ type pushService struct {
 	subject       string
 	keys          vapidKeys
 	subscriptions []pushSubscription
+	settings      pushSettings
+}
+
+type pushSettings struct {
+	ShowMessageContent bool `json:"showMessageContent"`
 }
 
 func newPushService(dir, subject string) (*pushService, error) {
@@ -53,6 +58,9 @@ func newPushService(dir, subject string) (*pushService, error) {
 	}
 	if err := readJSON(filepath.Join(dir, "push-subscriptions.json"), &service.subscriptions); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("load push subscriptions: %w", err)
+	}
+	if err := readJSON(filepath.Join(dir, "push-settings.json"), &service.settings); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("load push settings: %w", err)
 	}
 	return service, nil
 }
@@ -128,12 +136,31 @@ func (p *pushService) unsubscribe(endpoint string) error {
 }
 
 func (p *pushService) notify(message message) {
-	p.send(map[string]string{
+	p.mu.Lock()
+	showContent := p.settings.ShowMessageContent
+	p.mu.Unlock()
+	p.send(pushContent(message, showContent))
+}
+
+func pushContent(message message, showContent bool) map[string]string {
+	content := map[string]string{
 		"title": "新信息",
 		"body":  "收到一条新信息",
 		"url":   "/?screen=messages",
 		"tag":   "sms-" + message.ID,
-	})
+	}
+	if showContent {
+		content["title"] = fallback(message.SenderName, fallback(message.Number, "未知号码"))
+		content["body"] = message.Text
+	}
+	return content
+}
+
+func (p *pushService) updateSettings(settings pushSettings) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.settings = settings
+	return writeJSONFile(filepath.Join(p.dir, "push-settings.json"), settings)
 }
 
 type pushReport struct {
@@ -188,6 +215,36 @@ func (a *api) pushConfig(w http.ResponseWriter, _ *http.Request) {
 	count := len(a.push.subscriptions)
 	a.push.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"publicKey": a.push.keys.Public, "supported": true, "subscriptions": count})
+}
+
+func (a *api) getPushSettings(w http.ResponseWriter, _ *http.Request) {
+	if a.push == nil {
+		writeError(w, http.StatusServiceUnavailable, "消息推送未启用", errors.New("push service unavailable"))
+		return
+	}
+	a.push.mu.Lock()
+	settings := a.push.settings
+	a.push.mu.Unlock()
+	writeJSON(w, http.StatusOK, settings)
+}
+
+func (a *api) updatePushSettings(w http.ResponseWriter, r *http.Request) {
+	if a.push == nil {
+		writeError(w, http.StatusServiceUnavailable, "消息推送未启用", errors.New("push service unavailable"))
+		return
+	}
+	var settings pushSettings
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&settings); err != nil {
+		writeError(w, http.StatusBadRequest, "推送设置格式无效", err)
+		return
+	}
+	if err := a.push.updateSettings(settings); err != nil {
+		writeError(w, http.StatusInternalServerError, "保存推送设置失败", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, settings)
 }
 
 func (a *api) debugPush(w http.ResponseWriter, r *http.Request) {

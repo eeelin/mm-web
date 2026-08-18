@@ -42,6 +42,9 @@ open and can deliver privacy-preserving Web Push notifications for newly
 received SMS messages while the frontend is closed. Phone remains a placeholder.
 Incoming pushes also mark the installed PWA icon; opening Messages or tapping
 the notification clears the app badge.
+System Settings includes a message-preview switch. It is off by default; when
+enabled, notifications use the sender phone number as the title and SMS text as
+the body. The setting is stored in the persistent application data directory.
 
 ## Deployment Sketch
 
