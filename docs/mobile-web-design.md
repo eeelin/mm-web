@@ -23,7 +23,11 @@ copy, or empty dashboard ornamentation.
 The virtual desktop is the first screen. It shows the active cellular network
 at a glance and provides System Settings, Phone, Messages, and About icons.
 Messages opens the real SMS experience; About shows build, runtime, service,
-Push, PWA, and privacy status; Phone remains inactive until that capability
+Push, PWA, and privacy status. Phone opens a familiar dial pad backed by the
+selected modem's Voice interface and shows live dialing, ringing, active, and
+terminated states. It supports hangup and in-call DTMF while making clear that
+audio is handled by the host/modem voice path. Incoming-call UI and history
+remain later phases.
 ships.
 The Messages app refreshes while it is open. When installed as a PWA, it can
 notify the user about newly received SMS messages while closed. Sender and

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { BatteryMedium, Bell, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Copy, Code2, ExternalLink, Info, LockKeyhole, MessageSquare, Phone, Radio, Server, Settings, ShieldCheck, Signal, Smartphone, Wifi } from 'lucide-react';
 import { Messages } from './Messages';
+import { Phone as PhoneApp } from './Phone';
 
 type Modem = { id:string; name:string; model:string; state:string; network:string; tech:string; signal:number; sim:string; imei:string; firmware:string; port:string; manufacturer:string; deviceId:string; device:string; drivers:string[]; plugin:string; ports:string[]; ownNumbers:string[]; powerState:string; capabilities:string; supportedModes:string; currentModes:string; ipFamilies:string; operatorCode:string; registration:string; packetService:string; unlockRequired:string; unlockRetries:string[] };
 
 export function App() {
-  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'about'>(() => new URLSearchParams(location.search).get('screen') === 'messages' ? 'messages' : 'home');
+  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'>(() => new URLSearchParams(location.search).get('screen') === 'messages' ? 'messages' : 'home');
   const [modems, setModems] = useState<Modem[]>([]);
   const [selected, setSelected] = useState<Modem | null>(null);
   const [error, setError] = useState('');
@@ -37,11 +38,12 @@ export function App() {
     <section className="phone" aria-label="mmOS 虚拟手机">
       <div className="statusbar"><strong>{time}</strong><div className="island"/><div className="status-icons"><Signal size={15}/><Wifi size={15}/><BatteryMedium size={18}/></div></div>
       <div className="screen">
-        {screen==='home' && <Home onOpen={()=>setScreen('settings')} onMessages={()=>setScreen('messages')} onAbout={()=>setScreen('about')} active={active} error={error}/>}
+        {screen==='home' && <Home onOpen={()=>setScreen('settings')} onPhone={()=>setScreen('phone')} onMessages={()=>setScreen('messages')} onAbout={()=>setScreen('about')} active={active} error={error}/>}
         {screen==='settings' && <SettingsRoot onBack={goHome} onModems={()=>setScreen('modems')} onAbout={()=>setScreen('about')} active={active} count={modems.length}/>}
         {screen==='modems' && <ModemList active={active?.id ?? ''} modems={modems} onBack={()=>setScreen('settings')} onDetail={showModem}/>}
         {screen==='detail' && selected && <Detail modem={selected} active={active?.id===selected.id} onBack={()=>setScreen('modems')}/>}
         {screen==='messages' && <Messages onClose={goHome}/>}
+        {screen==='phone' && <PhoneApp onClose={goHome}/>}
         {screen==='about' && <About onBack={()=>setScreen('settings')}/>}
       </div>
       {screen!=='home' && <button className="home-indicator" aria-label="返回桌面" onClick={goHome}/>}
@@ -51,11 +53,11 @@ export function App() {
   </main>
 }
 
-function Home({onOpen,onMessages,onAbout,active,error}:{onOpen:()=>void;onMessages:()=>void;onAbout:()=>void;active:Modem|null;error:string}) { return <div className="wallpaper">
+function Home({onOpen,onPhone,onMessages,onAbout,active,error}:{onOpen:()=>void;onPhone:()=>void;onMessages:()=>void;onAbout:()=>void;active:Modem|null;error:string}) { return <div className="wallpaper">
   <header className="home-head"><p>8月17日 · 星期一</p><h1>早上好</h1></header>
   <section className="network-widget"><div><small>移动网络</small><h2>{active?.network ?? (error ? '服务不可用' : '正在读取设备')}</h2><p><span className="dot"/> {error || (active ? `${active.tech} · 信号 ${active.signal}%` : '未检测到调制解调器')}</p></div><SignalBars value={active?.signal ?? 0}/></section>
-  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><div className="app muted"><span className="app-icon"><Phone/></span><b>电话</b></div><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/></span><b>信息</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
-  <div className="dock"><div className="dock-icon"><Phone/></div><button className="dock-icon" onClick={onMessages}><MessageSquare/></button><button className="dock-icon" onClick={onOpen}><Settings/></button></div>
+  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/></span><b>电话</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/></span><b>信息</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
+  <div className="dock"><button className="dock-icon phone-icon" onClick={onPhone}><Phone/></button><button className="dock-icon" onClick={onMessages}><MessageSquare/></button><button className="dock-icon" onClick={onOpen}><Settings/></button></div>
 </div>}
 
 function Top({title,onBack,eyebrow}:{title:string;onBack:()=>void;eyebrow?:string}) {return <header className="appbar"><button onClick={onBack} aria-label="返回"><ChevronLeft/></button><div>{eyebrow&&<small>{eyebrow}</small>}<h1>{title}</h1></div><span/></header>}

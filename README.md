@@ -42,7 +42,9 @@ phone. System Settings opens the detected modem list and device details. The
 Messages app groups real SMS records into conversations and supports composing,
 sending, and deleting conversations. It refreshes while the Messages app is
 open and can deliver privacy-preserving Web Push notifications for newly
-received SMS messages while the frontend is closed. Phone remains a placeholder.
+received SMS messages while the frontend is closed. Phone provides real
+ModemManager Voice dialing, live call state, hangup, and in-call DTMF controls;
+audio remains on the host/modem voice path rather than passing through the browser.
 Incoming pushes also mark the installed PWA icon; opening Messages or tapping
 the notification clears the app badge.
 System Settings includes a message-preview switch. It is off by default; when

@@ -1,5 +1,6 @@
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.ModemManager1.Messaging" &&
+    if ((action.id == "org.freedesktop.ModemManager1.Messaging" ||
+         action.id == "org.freedesktop.ModemManager1.Voice") &&
         subject.isInGroup("mm-web")) {
         return polkit.Result.YES;
     }

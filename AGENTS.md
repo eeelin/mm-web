@@ -105,3 +105,21 @@ When changing a core choice, update the relevant document:
 - `docs/simple-container-deployment.md` for deployment behavior.
 - `docs/mobile-web-design.md` for UX and visual direction.
 - `AGENTS.md` for standing guidance that future agents must follow.
+
+## PolicyKit Compatibility
+
+- Do not assume that the presence of `/etc/polkit-1/rules.d` means JavaScript
+  `.rules` files are supported. This directory may have been created manually.
+- Before giving PolicyKit installation instructions, inspect the installed
+  PolicyKit version and active authority backend. PolicyKit 0.105 using the
+  `local` authority reads legacy `.pkla` files from
+  `/etc/polkit-1/localauthority/50-local.d/` and ignores JavaScript `.rules`
+  files.
+- On PolicyKit 0.105, create the legacy directory when it is absent and install
+  `deploy/polkit/50-mm-web-messaging.pkla`. Use the `.rules` file only after
+  verifying that the target system actually supports the rules backend.
+- Verify authorization first with `pkcheck` executed under the same user and
+  groups as the backend. Do not use `Voice.CreateCall` as a supposedly harmless
+  probe: even an empty number creates a call object and requires explicit
+  cleanup. Do not treat a successful file copy or service restart as proof that
+  the policy was loaded.

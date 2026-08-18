@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -11,10 +12,12 @@ import (
 const mmService = "org.freedesktop.ModemManager1"
 
 type api struct {
-	conn           *dbus.Conn
-	push           *pushService
-	debugPushToken string
-	startedAt      time.Time
+	conn            *dbus.Conn
+	push            *pushService
+	debugPushToken  string
+	startedAt       time.Time
+	callSignalsOnce sync.Once
+	callSignalsErr  error
 }
 
 type Server struct {
@@ -55,6 +58,11 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("GET /api/messages", a.messages)
 	mux.HandleFunc("POST /api/messages", a.sendMessage)
 	mux.HandleFunc("DELETE /api/messages/{id}", a.deleteMessage)
+	mux.HandleFunc("GET /api/calls", a.calls)
+	mux.HandleFunc("GET /api/calls/events", a.callEvents)
+	mux.HandleFunc("POST /api/calls", a.createCall)
+	mux.HandleFunc("POST /api/calls/{id}/hangup", a.hangupCall)
+	mux.HandleFunc("POST /api/calls/{id}/dtmf", a.sendCallDTMF)
 	mux.HandleFunc("GET /api/push", a.pushConfig)
 	mux.HandleFunc("POST /api/push/subscriptions", a.subscribePush)
 	mux.HandleFunc("DELETE /api/push/subscriptions", a.unsubscribePush)
