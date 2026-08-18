@@ -1,6 +1,6 @@
-[Allow mm-web to manage SMS]
+[Allow mm-web to manage SMS and voice calls]
 Identity=unix-group:mm-web
-Action=org.freedesktop.ModemManager1.Messaging
+Action=org.freedesktop.ModemManager1.Messaging;org.freedesktop.ModemManager1.Voice
 ResultAny=yes
 ResultInactive=yes
 ResultActive=yes
