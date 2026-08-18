@@ -118,6 +118,8 @@ When changing a core choice, update the relevant document:
 - On PolicyKit 0.105, create the legacy directory when it is absent and install
   `deploy/polkit/50-mm-web-messaging.pkla`. Use the `.rules` file only after
   verifying that the target system actually supports the rules backend.
-- Verify authorization with a harmless real D-Bus request that reaches the
-  relevant ModemManager action. Do not treat a successful file copy or service
-  restart as proof that the policy was loaded.
+- Verify authorization first with `pkcheck` executed under the same user and
+  groups as the backend. Do not use `Voice.CreateCall` as a supposedly harmless
+  probe: even an empty number creates a call object and requires explicit
+  cleanup. Do not treat a successful file copy or service restart as proof that
+  the policy was loaded.
