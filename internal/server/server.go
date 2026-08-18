@@ -56,6 +56,7 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("POST /api/messages", a.sendMessage)
 	mux.HandleFunc("DELETE /api/messages/{id}", a.deleteMessage)
 	mux.HandleFunc("GET /api/calls", a.calls)
+	mux.HandleFunc("GET /api/calls/events", a.callEvents)
 	mux.HandleFunc("POST /api/calls", a.createCall)
 	mux.HandleFunc("POST /api/calls/{id}/hangup", a.hangupCall)
 	mux.HandleFunc("POST /api/calls/{id}/dtmf", a.sendCallDTMF)

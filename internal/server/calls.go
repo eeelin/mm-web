@@ -38,8 +38,49 @@ func (a *api) calls(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "读取电话状态失败", err)
 		return
 	}
-	calls := collectCalls(objects)
+	calls, err := a.collectCalls(ctx, objects)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "读取呼叫状态失败", err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"calls": calls, "voiceAvailable": hasVoiceModem(objects), "updatedAt": time.Now().UTC()})
+}
+
+func (a *api) callEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "实时通话状态不可用", errors.New("streaming unsupported"))
+		return
+	}
+	options := []dbus.MatchOption{
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchMember("PropertiesChanged"),
+		dbus.WithMatchPathNamespace(dbus.ObjectPath("/org/freedesktop/ModemManager1/Call")),
+	}
+	if err := a.conn.AddMatchSignal(options...); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "监听通话状态失败", err)
+		return
+	}
+	signals := make(chan *dbus.Signal, 8)
+	a.conn.Signal(signals)
+	defer a.conn.RemoveSignal(signals)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(": connected\n\n"))
+	flusher.Flush()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case signal := <-signals:
+			if signal != nil {
+				_, _ = w.Write([]byte("event: call-state\ndata: {}\n\n"))
+				flusher.Flush()
+			}
+		}
+	}
 }
 
 func (a *api) createCall(w http.ResponseWriter, r *http.Request) {
@@ -122,22 +163,32 @@ func (a *api) sendCallDTMF(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func collectCalls(objects managedObjects) []voiceCall {
+func (a *api) collectCalls(ctx context.Context, objects managedObjects) ([]voiceCall, error) {
 	result := make([]voiceCall, 0)
 	for modemPath, interfaces := range objects {
 		voice := interfaces[voiceInterface]
 		if voice == nil {
 			continue
 		}
-		paths, _ := voice["Calls"].Value().([]dbus.ObjectPath)
+		// The Calls property in GetManagedObjects can lag behind or omit calls
+		// which terminated quickly. ListCalls is the authoritative snapshot.
+		var paths []dbus.ObjectPath
+		if err := a.conn.Object(mmService, modemPath).CallWithContext(ctx, voiceInterface+".ListCalls", 0).Store(&paths); err != nil {
+			return nil, err
+		}
 		for _, path := range paths {
-			if props := objects[path][callInterface]; props != nil {
-				result = append(result, callFromProps(path, modemPath, props))
+			props := objects[path][callInterface]
+			if props == nil {
+				props = make(map[string]dbus.Variant)
+				if err := a.conn.Object(mmService, path).CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, callInterface).Store(&props); err != nil {
+					return nil, err
+				}
 			}
+			result = append(result, callFromProps(path, modemPath, props))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
-	return result
+	return result, nil
 }
 
 func callFromProps(path, modemPath dbus.ObjectPath, props map[string]dbus.Variant) voiceCall {
