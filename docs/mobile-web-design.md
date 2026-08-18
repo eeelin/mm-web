@@ -12,8 +12,8 @@ connection problems without needing a terminal.
 - Appliance-like.
 - Touch-friendly.
 - The product shell is a virtual phone: users enter a familiar home screen and
-  open focused system apps. The first app is System Settings, where detected
-  modems can be inspected and selected.
+  open focused system apps. System Settings exposes notification preferences,
+  detected modem diagnostics, and runtime information about mmOS.
 
 Avoid large hero sections, decorative cards, gradient backgrounds, marketing
 copy, or empty dashboard ornamentation.
@@ -22,12 +22,14 @@ copy, or empty dashboard ornamentation.
 
 The virtual desktop is the first screen. It shows the active cellular network
 at a glance and provides System Settings, Phone, Messages, and About icons.
-Messages opens the real SMS experience; Phone and About remain inactive until
-those capabilities ship.
+Messages opens the real SMS experience; About shows build, runtime, service,
+Push, PWA, and privacy status; Phone remains inactive until that capability
+ships.
 The Messages app refreshes while it is open. When installed as a PWA, it can
-notify the user about newly received SMS messages while closed without exposing
-the sender or message body. Incoming pushes set the app icon badge; opening
-Messages or tapping the notification clears it.
+notify the user about newly received SMS messages while closed. Sender and
+message text are hidden by default; an explicit System Settings switch can show
+them in notifications. Incoming pushes set the app icon badge; opening Messages
+or tapping the notification clears it.
 Operational modem detail remains one tap away through System Settings instead
 of being presented as a marketing dashboard. On mobile browsers, the product
 fills the viewport without a simulated device frame, duplicate status bar, or
