@@ -26,8 +26,10 @@ Messages opens the real SMS experience; About shows build, runtime, service,
 Push, PWA, and privacy status. Phone opens a familiar dial pad backed by the
 selected modem's Voice interface and shows live dialing, ringing, active, and
 terminated states. It supports hangup and in-call DTMF while making clear that
-audio is handled by the host/modem voice path. Incoming-call UI and history
-remain later phases.
+audio is handled by the host/modem voice path. Incoming-call UI remains a later
+phase. The Phone app includes a persistent Recent Calls tab with
+incoming, outgoing, missed, and failed outcomes; tapping an entry calls the
+number again, and clearing all history requires confirmation.
 ships.
 The Messages app refreshes while it is open. When installed as a PWA, it can
 notify the user about newly received SMS messages while closed. Sender and
