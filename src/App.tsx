@@ -6,7 +6,7 @@ import { Phone as PhoneApp } from './Phone';
 type Modem = { id:string; name:string; model:string; state:string; network:string; tech:string; signal:number; sim:string; imei:string; firmware:string; port:string; manufacturer:string; deviceId:string; device:string; drivers:string[]; plugin:string; ports:string[]; ownNumbers:string[]; powerState:string; capabilities:string; supportedModes:string; currentModes:string; ipFamilies:string; operatorCode:string; registration:string; packetService:string; unlockRequired:string; unlockRetries:string[] };
 
 export function App() {
-  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'>(() => new URLSearchParams(location.search).get('screen') === 'messages' ? 'messages' : 'home');
+  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'>(() => {const requested=new URLSearchParams(location.search).get('screen');return requested==='messages'||requested==='phone'?requested:'home'});
   const [modems, setModems] = useState<Modem[]>([]);
   const [selected, setSelected] = useState<Modem | null>(null);
   const [error, setError] = useState('');
@@ -31,6 +31,11 @@ export function App() {
     const id = window.setInterval(load, 5000);
     return () => { alive = false; window.clearInterval(id); };
   }, []);
+  useEffect(()=>{
+    let alive=true;
+    const check=async()=>{try{const response=await fetch('/api/calls',{cache:'no-store'});if(!response.ok)return;const data=await response.json() as {calls:{state:string}[]};if(alive&&data.calls.some(call=>call.state==='ringing-in'))setScreen('phone')}catch{}};
+    check();const events=new EventSource('/api/calls/events');events.addEventListener('call-state',check);const fallback=window.setInterval(check,3000);return()=>{alive=false;events.close();window.clearInterval(fallback)};
+  },[]);
   const goHome=()=>setScreen('home');
   const active = modems.find(m=>m.state==='已连接') ?? modems[0] ?? null;
   const showModem=(m:Modem)=>{setSelected(m);setScreen('detail')};
