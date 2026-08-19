@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { BatteryMedium, Bell, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Copy, Code2, ExternalLink, Info, LockKeyhole, MessageSquare, Phone, Radio, Server, Settings, ShieldCheck, Signal, Smartphone, Wifi } from 'lucide-react';
+import { Activity, BatteryMedium, Bell, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Copy, Code2, ExternalLink, Info, LockKeyhole, MessageSquare, Phone, Radio, RefreshCw, Server, Settings, ShieldCheck, Signal, Smartphone, Wifi, XCircle } from 'lucide-react';
 import { Messages } from './Messages';
 import { Phone as PhoneApp } from './Phone';
 
 type Modem = { id:string; name:string; model:string; state:string; network:string; tech:string; signal:number; sim:string; imei:string; firmware:string; port:string; manufacturer:string; deviceId:string; device:string; drivers:string[]; plugin:string; ports:string[]; ownNumbers:string[]; powerState:string; capabilities:string; supportedModes:string; currentModes:string; ipFamilies:string; operatorCode:string; registration:string; packetService:string; unlockRequired:string; unlockRetries:string[] };
 
 export function App() {
-  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'>(() => {const requested=new URLSearchParams(location.search).get('screen');return requested==='messages'||requested==='phone'?requested:'home'});
+  const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'|'diagnostics'>(() => {const requested=new URLSearchParams(location.search).get('screen');return requested==='messages'||requested==='phone'||requested==='diagnostics'?requested:'home'});
   const [modems, setModems] = useState<Modem[]>([]);
   const [selected, setSelected] = useState<Modem | null>(null);
   const [error, setError] = useState('');
@@ -43,13 +43,14 @@ export function App() {
     <section className="phone" aria-label="mmOS 虚拟手机">
       <div className="statusbar"><strong>{time}</strong><div className="island"/><div className="status-icons"><Signal size={15}/><Wifi size={15}/><BatteryMedium size={18}/></div></div>
       <div className="screen">
-        {screen==='home' && <Home onOpen={()=>setScreen('settings')} onPhone={()=>setScreen('phone')} onMessages={()=>setScreen('messages')} onAbout={()=>setScreen('about')} active={active} error={error}/>}
+        {screen==='home' && <Home onOpen={()=>setScreen('settings')} onPhone={()=>setScreen('phone')} onMessages={()=>setScreen('messages')} onAbout={()=>setScreen('about')} onDiagnostics={()=>setScreen('diagnostics')} active={active} error={error}/>}
         {screen==='settings' && <SettingsRoot onBack={goHome} onModems={()=>setScreen('modems')} onAbout={()=>setScreen('about')} active={active} count={modems.length}/>}
         {screen==='modems' && <ModemList active={active?.id ?? ''} modems={modems} onBack={()=>setScreen('settings')} onDetail={showModem}/>}
         {screen==='detail' && selected && <Detail modem={selected} active={active?.id===selected.id} onBack={()=>setScreen('modems')}/>}
         {screen==='messages' && <Messages onClose={goHome}/>}
         {screen==='phone' && <PhoneApp onClose={goHome}/>}
         {screen==='about' && <About onBack={()=>setScreen('settings')}/>}
+        {screen==='diagnostics' && <Diagnostics onBack={goHome}/>}
       </div>
       {screen!=='home' && <button className="home-indicator" aria-label="返回桌面" onClick={goHome}/>}
       {screen==='home' && <div className="home-indicator decorative"/>}
@@ -58,12 +59,35 @@ export function App() {
   </main>
 }
 
-function Home({onOpen,onPhone,onMessages,onAbout,active,error}:{onOpen:()=>void;onPhone:()=>void;onMessages:()=>void;onAbout:()=>void;active:Modem|null;error:string}) { return <div className="wallpaper">
+function Home({onOpen,onPhone,onMessages,onAbout,onDiagnostics,active,error}:{onOpen:()=>void;onPhone:()=>void;onMessages:()=>void;onAbout:()=>void;onDiagnostics:()=>void;active:Modem|null;error:string}) { return <div className="wallpaper">
   <header className="home-head"><p>8月17日 · 星期一</p><h1>早上好</h1></header>
   <section className="network-widget"><div><small>移动网络</small><h2>{active?.network ?? (error ? '服务不可用' : '正在读取设备')}</h2><p><span className="dot"/> {error || (active ? `${active.tech} · 信号 ${active.signal}%` : '未检测到调制解调器')}</p></div><SignalBars value={active?.signal ?? 0}/></section>
-  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/></span><b>电话</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/></span><b>信息</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
+  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/></span><b>电话</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/></span><b>信息</b></button><button className="app" onClick={onDiagnostics}><span className="app-icon diagnostics-icon"><Activity/></span><b>检测</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
   <div className="dock"><button className="dock-icon phone-icon" onClick={onPhone}><Phone/></button><button className="dock-icon" onClick={onMessages}><MessageSquare/></button><button className="dock-icon settings-icon" onClick={onOpen}><Settings/></button></div>
 </div>}
+
+type HealthState = {dbusAvailable:boolean;modemsOnline:boolean;atAvailable:boolean;modemIds:string[];checkedAt:string};
+
+function Diagnostics({onBack}:{onBack:()=>void}) {
+  const [health,setHealth]=useState<HealthState|null>(null); const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
+  const load=async()=>{setLoading(true);try{const response=await fetch('/api/health',{cache:'no-store'});const data=await response.json() as {modemManager?:HealthState};if(!data.modemManager)throw new Error();setHealth(data.modemManager);setError('')}catch{setError('无法连接 mm-web 后端')}finally{setLoading(false)}};
+  useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),10000);return()=>window.clearInterval(timer)},[]);
+  const healthy=Boolean(health?.dbusAvailable&&health.modemsOnline&&health.atAvailable);
+  return <div className="page diagnostics-page"><Top title="检测" onBack={onBack}/><div className="content">
+    <section className={`health-hero ${healthy?'ok':'bad'}`}>{healthy?<CheckCircle2/>:<XCircle/>}<div><h2>{loading&&!health?'正在检测':healthy?'运行正常':'检测到异常'}</h2><p>{healthy?'ModemManager 与调制解调器通信正常':'部分电话、信息或设备状态可能不可用'}</p></div></section>
+    {error&&<p className="messages-error">{error}</p>}
+    <SectionLabel text="检测项目"/><div className="health-list">
+      <HealthRow label="ModemManager D-Bus" detail="后端与 ModemManager 的系统总线连接" ok={health?.dbusAvailable}/>
+      <HealthRow label="调制解调器" detail={health?.modemIds.length?`已发现 ${health.modemIds.length} 台设备 · 编号 ${health.modemIds.join('、')}`:'是否发现可用的蜂窝设备'} ok={health?.modemsOnline}/>
+      <HealthRow label="AT 控制通道" detail="电话、短信与实时信号所需的控制端口" ok={health?.atAvailable}/>
+    </div>
+    <p className="health-time">{health?.checkedAt?`后端检测于 ${new Date(health.checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}`:'等待后端检测结果'}</p>
+    <button className="primary diagnostics-refresh" onClick={()=>void load()} disabled={loading}><RefreshCw className={loading?'spinning':''}/>{loading?'检测中':'立即检测'}</button>
+    <div className="info-box"><Info/><p><b>后台持续检测</b><br/>连续三次异常后发送 Push 通知。同一次故障只提醒一次，恢复后会重新启用告警。</p></div>
+  </div></div>
+}
+
+function HealthRow({label,detail,ok}:{label:string;detail:string;ok:boolean|undefined}) {return <div className="health-row"><span className={ok?'ok':ok===false?'bad':'pending'}>{ok?<CheckCircle2/>:ok===false?<XCircle/>:<Activity/>}</span><div><b>{label}</b><small>{detail}</small></div><em>{ok?'正常':ok===false?'异常':'检测中'}</em></div>}
 
 function Top({title,onBack,eyebrow}:{title:string;onBack:()=>void;eyebrow?:string}) {return <header className="appbar"><button onClick={onBack} aria-label="返回"><ChevronLeft/></button><div>{eyebrow&&<small>{eyebrow}</small>}<h1>{title}</h1></div><span/></header>}
 function SettingsRoot({onBack,onModems,onAbout,active,count}:{onBack:()=>void;onModems:()=>void;onAbout:()=>void;active:Modem|null;count:number}) {return <div className="page"><Top title="系统设置" onBack={onBack}/><div className="content"><section className="device-card"><div className="device-avatar"><Smartphone/></div><div><h2>mmOS 控制台</h2><p>本机 · 在线</p></div><span className="online-dot"/></section><SectionLabel text="网络与设备"/><button className="setting-row" onClick={onModems}><span className="row-icon blue"><Radio/></span><span><b>蜂窝调制解调器</b><small>{active?.name ?? '未检测到设备'}</small></span><em>{count} 台</em><ChevronRight/></button><div className="setting-row disabled"><span className="row-icon green"><Wifi/></span><span><b>无线网络</b><small>由主机系统管理</small></span><em>不可用</em></div><SectionLabel text="通知"/><PushPreviewSetting/><SectionLabel text="系统"/><div className="setting-row disabled"><span className="row-icon purple"><ShieldCheck/></span><span><b>ModemManager</b><small>服务运行正常</small></span><em className="success">已连接</em></div><button className="setting-row" onClick={onAbout}><span className="row-icon gray"><CircleHelp/></span><span><b>关于 mmOS</b><small>版本 0.2.0</small></span><ChevronRight/></button></div></div>}

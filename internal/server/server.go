@@ -20,6 +20,7 @@ type api struct {
 	callSignalsErr   error
 	callHistory      *callHistoryStore
 	incomingNotified map[string]bool
+	modemHealth      *modemHealthMonitor
 }
 
 type Server struct {
@@ -41,6 +42,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken, startedAt: time.Now(), incomingNotified: make(map[string]bool)}
+	a.modemHealth = newModemHealthMonitor(push)
 	a.callHistory, err = newCallHistoryStore(config.DataDir)
 	if err != nil {
 		cancel()
@@ -49,6 +51,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 	handler := routes(a, config.StaticDir)
 	go a.watchIncomingMessages(ctx)
 	go a.watchCallHistory(ctx)
+	go a.watchModemHealth(ctx)
 	return &Server{handler: handler, cancel: cancel}, nil
 }
 
@@ -89,8 +92,13 @@ func (a *api) health(w http.ResponseWriter, _ *http.Request) {
 	var owner string
 	err := a.conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, mmService).Store(&owner)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "ModemManager 不可用", err)
+		state := modemHealthState{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "degraded", "error": "ModemManager 不可用", "modemManager": state})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	result := map[string]any{"status": "ok"}
+	if a.modemHealth != nil {
+		result["modemManager"] = a.modemHealth.snapshot()
+	}
+	writeJSON(w, http.StatusOK, result)
 }

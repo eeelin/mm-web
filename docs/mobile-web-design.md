@@ -21,7 +21,9 @@ copy, or empty dashboard ornamentation.
 ## First Screen
 
 The virtual desktop is the first screen. It shows the active cellular network
-at a glance and provides System Settings, Phone, Messages, and About icons.
+at a glance and provides System Settings, Phone, Messages, Detection, and About
+icons. Detection shows the latest backend checks for ModemManager D-Bus,
+modem presence, and the AT control channel, with a manual refresh action.
 Messages opens the real SMS experience; About shows build, runtime, service,
 Push, PWA, and privacy status. Phone opens a familiar dial pad backed by the
 selected modem's Voice interface and shows live dialing, ringing, active, and

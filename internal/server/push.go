@@ -146,6 +146,10 @@ func (p *pushService) notifyIncomingCall(call voiceCall) {
 	p.send(incomingCallPushContent(call))
 }
 
+func (p *pushService) notifyModemHealthFailure(kind string) {
+	p.send(modemHealthPushContent(kind))
+}
+
 func incomingCallPushContent(call voiceCall) map[string]string {
 	return map[string]string{
 		"title": "来电",
