@@ -55,6 +55,19 @@ Screen first, open the installed mmOS app, then enable notifications from the
 Messages screen. Browser tabs on iOS cannot subscribe without the Home Screen
 installation.
 
+## Modem health notifications
+
+The backend checks ModemManager every 30 seconds through the mounted system
+D-Bus socket. It reports D-Bus availability, modem presence, and whether an AT
+modem's signal value is fresh. The Detection app presents the latest result,
+and `GET /api/health` exposes the same state under `modemManager`.
+
+After three consecutive failures, mm-web sends one Web Push notification for
+that incident. A successful check resets the alert so a later incident can
+notify again. The monitor does not open modem device nodes or restart
+ModemManager automatically, so the standard container mounts and permissions
+remain unchanged.
+
 ## Permission Model
 
 The container connects to the host system bus through the mounted Unix socket.
