@@ -108,3 +108,14 @@ persistent application data directory; a database is not required yet.
 Message previews remain disabled by default. Operators can enable them from
 System Settings; preview notifications use a known sender name when one becomes
 available, otherwise the phone number, and include the SMS text as the body.
+
+## 10. Monitor modem health through ModemManager D-Bus
+
+Decision: the backend periodically checks ModemManager D-Bus availability,
+modem presence, and the freshness bit in `SignalQuality`. For AT-based modems,
+a repeatedly cached signal value is treated as an unavailable control channel.
+Three consecutive failures send one Web Push notification per incident.
+
+The monitor must not open modem device nodes, parse `mmcli` output, require
+permanent DEBUG logging, or restart ModemManager automatically. Lower-level
+recovery remains an explicit host operation.

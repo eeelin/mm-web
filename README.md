@@ -117,6 +117,13 @@ For staging diagnostics, set `MM_WEB_DEBUG_PUSH_TOKEN` on the API and run
 when the token is unset and reports the subscription/delivery counts without
 exposing subscription details.
 
+The backend checks ModemManager health every 30 seconds. It monitors system
+D-Bus availability, whether any modem is present, and whether the signal value
+is fresh (used as a non-destructive AT control-channel probe). Three consecutive
+failures produce one Web Push alert per incident; a successful check resets the
+alert so a later incident can notify again. `GET /api/health` exposes the latest
+check under `modemManager`. No modem device-node or journal mount is required.
+
 ## CI and releases
 
 Pull requests and pushes to `main` run Go vet/tests (including the race
