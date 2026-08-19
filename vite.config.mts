@@ -4,7 +4,7 @@ export default defineConfig({
   server: {
     allowedHosts: ["server.ruyi.homes"],
     proxy: {
-      "/api": "http://127.0.0.1:8080",
+      "/api": process.env.MM_WEB_API_PROXY || "http://127.0.0.1:8080",
     },
   },
 });
