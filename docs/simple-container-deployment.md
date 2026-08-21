@@ -57,9 +57,11 @@ installation.
 
 ## Modem health notifications
 
-The backend checks ModemManager every 30 seconds through the mounted system
-D-Bus socket. It reports D-Bus availability, modem presence, and whether an AT
-modem's signal value is fresh. The Detection app presents the latest result,
+The backend checks ModemManager through the mounted system D-Bus every two
+minutes by default. Operators can change the interval from the Detection app;
+the setting persists in the application data directory. It reports D-Bus
+availability, modem presence, and whether an AT modem's signal value is fresh.
+The Detection app presents the latest result,
 and `GET /api/health` exposes the same state under `modemManager`.
 
 After three consecutive failures, mm-web sends one Web Push notification for

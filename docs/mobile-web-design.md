@@ -23,7 +23,8 @@ copy, or empty dashboard ornamentation.
 The virtual desktop is the first screen. It shows the active cellular network
 at a glance and provides System Settings, Phone, Messages, Detection, and About
 icons. Detection shows the latest backend checks for ModemManager D-Bus,
-modem presence, and the AT control channel, with a manual refresh action.
+modem presence, and the AT control channel, and lets operators choose the
+automatic check interval (two minutes by default) or run a manual check.
 Messages opens the real SMS experience; About shows build, runtime, service,
 Push, PWA, and privacy status. Phone opens a familiar dial pad backed by the
 selected modem's Voice interface and shows live dialing, ringing, active, and
@@ -36,8 +37,10 @@ number again, and clearing all history requires confirmation.
 The Messages app refreshes while it is open. When installed as a PWA, it can
 notify the user about newly received SMS messages while closed. Sender and
 message text are hidden by default; an explicit System Settings switch can show
-them in notifications. Incoming pushes set the app icon badge; opening Messages
-or tapping the notification clears it.
+them in notifications. Incoming pushes set a red dot on the corresponding
+virtual desktop app and the installed PWA icon. Notification clicks do not
+clear unread state. Opening the corresponding Messages, Phone, or Detection
+screen clears only that category, so unrelated unread alerts remain visible.
 Operational modem detail remains one tap away through System Settings instead
 of being presented as a marketing dashboard. On mobile browsers, the product
 fills the viewport without a simulated device frame, duplicate status bar, or
