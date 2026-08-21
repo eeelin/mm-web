@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, Delete, Grid3X3, MicOff, Phone as PhoneIcon, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, Trash2 } from 'lucide-react';
+import { clearUnread } from './unread';
 
 type Call = {id:string; modemId:string; number:string; direction:string; state:string; reason?:string};
 type CallsResponse = {calls:Call[]; voiceAvailable:boolean};
@@ -11,7 +12,7 @@ const reasonLabels:Record<string,string>={'refused-or-busy':'对方忙或已拒�
 
 export function Phone({onClose}:{onClose:()=>void}) {
   const [tab,setTab]=useState<'recent'|'keypad'>('recent'); const [number,setNumber]=useState(''); const [calls,setCalls]=useState<Call[]>([]); const [history,setHistory]=useState<HistoryEntry[]>([]); const [recentCallId,setRecentCallId]=useState(''); const [voiceAvailable,setVoiceAvailable]=useState<boolean|null>(null); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [showKeys,setShowKeys]=useState(false);
-  const load=useCallback(async()=>{try{const response=await fetch('/api/calls',{cache:'no-store'});const data=await response.json() as CallsResponse&{error?:string};if(!response.ok)throw new Error(data.error||'服务不可用');setCalls(data.calls);setVoiceAvailable(data.voiceAvailable)}catch(err){setError(err instanceof Error?err.message:'无法读取电话状态')}},[]);
+  const load=useCallback(async()=>{try{const response=await fetch('/api/calls',{cache:'no-store'});const data=await response.json() as CallsResponse&{error?:string};if(!response.ok)throw new Error(data.error||'服务不可用');setCalls(data.calls);setVoiceAvailable(data.voiceAvailable);void clearUnread('phone')}catch(err){setError(err instanceof Error?err.message:'无法读取电话状态')}},[]);
   const loadHistory=useCallback(async()=>{try{const response=await fetch('/api/call-history',{cache:'no-store'});if(response.ok)setHistory((await response.json() as {calls:HistoryEntry[]}).calls)}catch{}},[]);
   useEffect(()=>{load();loadHistory();const refresh=()=>{load();window.setTimeout(loadHistory,1200)};const events=new EventSource('/api/calls/events');events.addEventListener('call-state',refresh);const fallback=window.setInterval(refresh,5000);return()=>{events.close();window.clearInterval(fallback)}},[load,loadHistory]);
   const active=calls.find(call=>call.state!=='terminated')??calls.find(call=>call.id===recentCallId);

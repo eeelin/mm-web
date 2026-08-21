@@ -42,7 +42,7 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &api{conn: conn, push: push, debugPushToken: config.DebugPushToken, startedAt: time.Now(), incomingNotified: make(map[string]bool)}
-	a.modemHealth = newModemHealthMonitor(push)
+	a.modemHealth = newModemHealthMonitor(push, config.DataDir)
 	a.callHistory, err = newCallHistoryStore(config.DataDir)
 	if err != nil {
 		cancel()
@@ -59,7 +59,7 @@ func (s *Server) Handler() http.Handler { return s.handler }
 func (s *Server) Close()                { s.cancel() }
 
 func NewHandler(conn *dbus.Conn, staticDir string) http.Handler {
-	return routes(&api{conn: conn}, staticDir)
+	return routes(&api{conn: conn, modemHealth: newModemHealthMonitor(nil)}, staticDir)
 }
 
 func routes(a *api, staticDir string) http.Handler {
@@ -82,6 +82,8 @@ func routes(a *api, staticDir string) http.Handler {
 	mux.HandleFunc("DELETE /api/push/subscriptions", a.unsubscribePush)
 	mux.HandleFunc("GET /api/settings/push", a.getPushSettings)
 	mux.HandleFunc("PUT /api/settings/push", a.updatePushSettings)
+	mux.HandleFunc("GET /api/settings/health", a.getHealthSettings)
+	mux.HandleFunc("PUT /api/settings/health", a.updateHealthSettings)
 	mux.HandleFunc("GET /api/about", a.about)
 	mux.HandleFunc("POST /api/debug/push", a.debugPush)
 	mux.Handle("/", staticFiles(staticDir))

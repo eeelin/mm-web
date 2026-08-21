@@ -49,8 +49,10 @@ Recent incoming and outgoing calls are retained in the configured data directory
 including missed/failed outcomes and connected-call duration.
 Incoming calls open a full-screen answer/reject view while the app is active and
 send a privacy-preserving Web Push notification when a subscribed PWA is closed.
-Incoming pushes also mark the installed PWA icon; opening Messages or tapping
-the notification clears the app badge.
+Incoming pushes mark both the matching virtual desktop app and the installed
+PWA icon. The badge persists after tapping a notification and is cleared only
+when the user actually opens the corresponding Messages, Phone, or Detection
+screen; other unread categories keep the installed-app badge active.
 System Settings includes a message-preview switch. It is off by default; when
 enabled, notifications use the sender phone number as the title and SMS text as
 the body. The setting is stored in the persistent application data directory.
@@ -117,7 +119,8 @@ For staging diagnostics, set `MM_WEB_DEBUG_PUSH_TOKEN` on the API and run
 when the token is unset and reports the subscription/delivery counts without
 exposing subscription details.
 
-The backend checks ModemManager health every 30 seconds. It monitors system
+The backend checks ModemManager health on a configurable interval, defaulting
+to two minutes. It monitors system
 D-Bus availability, whether any modem is present, and whether the signal value
 is fresh (used as a non-destructive AT control-channel probe). Three consecutive
 failures produce one Web Push alert per incident; a successful check resets the

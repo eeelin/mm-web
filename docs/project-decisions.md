@@ -108,6 +108,10 @@ persistent application data directory; a database is not required yet.
 Message previews remain disabled by default. Operators can enable them from
 System Settings; preview notifications use a known sender name when one becomes
 available, otherwise the phone number, and include the SMS text as the body.
+Unread Push state is persisted by category in browser storage. It drives both
+the virtual desktop red dots and the installed PWA badge, and is cleared only
+after the user opens the corresponding product screen, not when a notification
+is merely clicked.
 
 ## 10. Monitor modem health through ModemManager D-Bus
 
