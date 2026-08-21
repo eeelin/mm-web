@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -12,8 +16,8 @@ import (
 )
 
 const (
-	healthCheckInterval = 30 * time.Second
-	healthFailureLimit  = 3
+	defaultHealthInterval = 2 * time.Minute
+	healthFailureLimit    = 3
 )
 
 type modemHealthState struct {
@@ -25,20 +29,85 @@ type modemHealthState struct {
 }
 
 type modemHealthMonitor struct {
-	mu           sync.Mutex
-	push         *pushService
-	state        modemHealthState
-	initialized  bool
-	failures     map[string]int
-	notifiedDown map[string]bool
+	mu              sync.Mutex
+	push            *pushService
+	state           modemHealthState
+	initialized     bool
+	failures        map[string]int
+	notifiedDown    map[string]bool
+	dir             string
+	settings        healthSettings
+	settingsChanged chan struct{}
 }
 
-func newModemHealthMonitor(push *pushService) *modemHealthMonitor {
-	return &modemHealthMonitor{
+type healthSettings struct {
+	CheckIntervalSeconds int `json:"checkIntervalSeconds"`
+}
+
+func newModemHealthMonitor(push *pushService, dirs ...string) *modemHealthMonitor {
+	monitor := &modemHealthMonitor{
 		push:     push,
 		state:    modemHealthState{DBusAvailable: true, ModemsOnline: true, ATAvailable: true},
 		failures: make(map[string]int), notifiedDown: make(map[string]bool),
+		settings:        healthSettings{CheckIntervalSeconds: int(defaultHealthInterval.Seconds())},
+		settingsChanged: make(chan struct{}, 1),
 	}
+	if len(dirs) > 0 {
+		monitor.dir = dirs[0]
+		var stored healthSettings
+		if err := readJSON(filepath.Join(monitor.dir, "health-settings.json"), &stored); err == nil && validHealthInterval(stored.CheckIntervalSeconds) {
+			monitor.settings = stored
+		} else if err != nil && !os.IsNotExist(err) {
+			log.Printf("load health settings: %v", err)
+		}
+	}
+	return monitor
+}
+
+func validHealthInterval(seconds int) bool { return seconds >= 30 && seconds <= 3600 }
+
+func (m *modemHealthMonitor) getSettings() healthSettings {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.settings
+}
+
+func (m *modemHealthMonitor) updateSettings(settings healthSettings) error {
+	if !validHealthInterval(settings.CheckIntervalSeconds) {
+		return fmt.Errorf("check interval must be between 30 and 3600 seconds")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.dir != "" {
+		if err := writeJSONFile(filepath.Join(m.dir, "health-settings.json"), settings); err != nil {
+			return err
+		}
+	}
+	m.settings = settings
+	select {
+	case m.settingsChanged <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (a *api) getHealthSettings(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, a.modemHealth.getSettings())
+}
+
+func (a *api) updateHealthSettings(w http.ResponseWriter, r *http.Request) {
+	var settings healthSettings
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&settings); err != nil {
+		writeError(w, http.StatusBadRequest, "检测设置格式无效", err)
+		return
+	}
+	if err := a.modemHealth.updateSettings(settings); err != nil {
+		writeError(w, http.StatusBadRequest, "检测间隔无效", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, settings)
 }
 
 func (m *modemHealthMonitor) snapshot() modemHealthState {
@@ -56,14 +125,16 @@ func (a *api) watchModemHealth(ctx context.Context) {
 		a.modemHealth.observe(a.probeModemHealth(probeCtx))
 	}
 	check()
-	ticker := time.NewTicker(healthCheckInterval)
-	defer ticker.Stop()
 	for {
+		timer := time.NewTimer(time.Duration(a.modemHealth.getSettings().CheckIntervalSeconds) * time.Second)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			check()
+		case <-a.modemHealth.settingsChanged:
+			timer.Stop()
 		}
 	}
 }
@@ -159,7 +230,7 @@ func modemHealthPushContent(kind string) map[string]string {
 	return map[string]string{
 		"title": "蜂窝调制解调器异常",
 		"body":  fmt.Sprintf("%s", fallback(bodies[kind], "检测到调制解调器异常。")),
-		"url":   "/?screen=settings",
+		"url":   "/?screen=diagnostics",
 		"tag":   "modem-health-" + kind,
 	}
 }
