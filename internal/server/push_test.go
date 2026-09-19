@@ -141,3 +141,33 @@ func TestSubscribePushAcceptsBrowserExpirationTime(t *testing.T) {
 		t.Fatalf("subscribePush status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestSubscribePushAcceptsNumericExpirationTime(t *testing.T) {
+	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &api{push: service}
+	body := []byte(`{"endpoint":"https://web.push.apple.com/subscription","expirationTime":1750000000000,"keys":{"auth":"a","p256dh":"p"}}`)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/push/subscriptions", bytes.NewReader(body))
+	a.subscribePush(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("subscribePush status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestSubscribePushRejectsInvalidExpirationTime(t *testing.T) {
+	service, err := newPushService(t.TempDir(), "mailto:test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &api{push: service}
+	body := []byte(`{"endpoint":"https://web.push.apple.com/subscription","expirationTime":"invalid","keys":{"auth":"a","p256dh":"p"}}`)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/push/subscriptions", bytes.NewReader(body))
+	a.subscribePush(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("subscribePush status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}
