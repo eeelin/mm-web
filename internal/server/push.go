@@ -19,8 +19,9 @@ import (
 )
 
 type pushSubscription struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
+	Endpoint       string   `json:"endpoint"`
+	ExpirationTime *float64 `json:"expirationTime,omitempty"`
+	Keys           struct {
 		Auth   string `json:"auth"`
 		P256dh string `json:"p256dh"`
 	} `json:"keys"`
