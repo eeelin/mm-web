@@ -136,19 +136,19 @@ func (p *pushService) unsubscribe(endpoint string) error {
 	return p.saveSubscriptions()
 }
 
-func (p *pushService) notify(message message) {
+func (p *pushService) notify(ctx context.Context, message message) pushReport {
 	p.mu.Lock()
 	showContent := p.settings.ShowMessageContent
 	p.mu.Unlock()
-	p.send(pushContent(message, showContent))
+	return p.send(ctx, pushContent(message, showContent))
 }
 
 func (p *pushService) notifyIncomingCall(call voiceCall) {
-	p.send(incomingCallPushContent(call))
+	p.send(context.Background(), incomingCallPushContent(call))
 }
 
 func (p *pushService) notifyModemHealthFailure(kind string) {
-	p.send(modemHealthPushContent(kind))
+	p.send(context.Background(), modemHealthPushContent(kind))
 }
 
 func incomingCallPushContent(call voiceCall) map[string]string {
@@ -187,7 +187,7 @@ type pushReport struct {
 	Failed        int `json:"failed"`
 }
 
-func (p *pushService) send(content map[string]string) pushReport {
+func (p *pushService) send(ctx context.Context, content map[string]string) pushReport {
 	payload, _ := json.Marshal(content)
 
 	p.mu.Lock()
@@ -196,13 +196,15 @@ func (p *pushService) send(content map[string]string) pushReport {
 	report := pushReport{Subscriptions: len(subscriptions)}
 
 	for _, subscription := range subscriptions {
-		response, err := webpush.SendNotification(payload, &webpush.Subscription{
+		requestCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		response, err := webpush.SendNotificationWithContext(requestCtx, payload, &webpush.Subscription{
 			Endpoint: subscription.Endpoint,
 			Keys:     webpush.Keys{Auth: subscription.Keys.Auth, P256dh: subscription.Keys.P256dh},
 		}, &webpush.Options{
 			Subscriber: p.subject, VAPIDPublicKey: p.keys.Public, VAPIDPrivateKey: p.keys.Private,
-			TTL: 60, Urgency: webpush.UrgencyHigh,
+			TTL: 60, Urgency: webpush.UrgencyHigh, HTTPClient: &http.Client{Timeout: 10 * time.Second},
 		})
+		cancel()
 		if err != nil {
 			log.Printf("send push notification: %v", err)
 			report.Failed++
@@ -274,7 +276,7 @@ func (a *api) debugPush(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "调试令牌无效", errors.New("invalid debug token"))
 		return
 	}
-	report := a.push.send(map[string]string{
+	report := a.push.send(r.Context(), map[string]string{
 		"title": "mmOS 推送测试",
 		"body":  "如果你看到这条通知，Web Push 链路工作正常。",
 		"url":   "/?screen=messages",
@@ -326,8 +328,6 @@ func (a *api) unsubscribePush(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) watchIncomingMessages(ctx context.Context) {
-	seen := make(map[string]string)
-	initialized := false
 	check := func() {
 		requestCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
@@ -341,15 +341,9 @@ func (a *api) watchIncomingMessages(ctx context.Context) {
 			log.Printf("watch incoming message contents: %v", err)
 			return
 		}
-		for _, current := range messages {
-			key := current.ModemID + ":" + current.ID
-			previous, exists := seen[key]
-			if initialized && current.Direction == "received" && current.State == "received" && (!exists || previous != "received") {
-				go a.push.notify(current)
-			}
-			seen[key] = current.State
+		if err := a.archiveAndCleanMessages(requestCtx, messages, true); err != nil {
+			log.Printf("archive incoming messages: %v", err)
 		}
-		initialized = true
 	}
 	check()
 	ticker := time.NewTicker(2 * time.Second)
