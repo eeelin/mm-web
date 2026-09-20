@@ -31,6 +31,13 @@ The application may store local UI preferences, sampled signal history, and
 operation logs, but it should not maintain an independent modem state machine
 that competes with ModemManager.
 
+SMS history is the exception to ephemeral runtime state: modem and SIM message
+storage is small and can stop accepting new SMS records when full. The backend
+therefore archives complete received and sent messages in SQLite under the
+persistent application data directory, then deletes the modem copy only after
+the database commit succeeds. ModemManager remains authoritative for messages
+that are still receiving or sending.
+
 ## 3. Prefer direct D-Bus integration over shelling out to mmcli
 
 Decision: the backend should use a D-Bus client library as the primary
@@ -103,7 +110,9 @@ Decision: the backend detects newly received ModemManager SMS records even when
 the frontend is closed and sends a Web Push notification through persisted
 browser subscriptions. Notifications do not include the sender or message
 body. VAPID keys and subscriptions use a small file-backed store in the
-persistent application data directory; a database is not required yet.
+persistent application data directory. Notification delivery state for SMS is
+kept with the SQLite archive so polling, API reads, and restarts cannot produce
+duplicate alerts.
 
 Message previews remain disabled by default. Operators can enable them from
 System Settings; preview notifications use a known sender name when one becomes

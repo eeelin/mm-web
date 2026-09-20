@@ -21,11 +21,17 @@ type api struct {
 	callHistory      *callHistoryStore
 	incomingNotified map[string]bool
 	modemHealth      *modemHealthMonitor
+	messageStore     *messageStore
+	messageSyncMu    sync.Mutex
+	messagesReady    bool
+	deleteSMS        func(context.Context, message) error
 }
 
 type Server struct {
-	handler http.Handler
-	cancel  context.CancelFunc
+	handler  http.Handler
+	cancel   context.CancelFunc
+	messages *messageStore
+	watchers sync.WaitGroup
 }
 
 type Config struct {
@@ -48,15 +54,28 @@ func New(conn *dbus.Conn, config Config) (*Server, error) {
 		cancel()
 		return nil, err
 	}
+	a.messageStore, err = newMessageStore(config.DataDir)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
 	handler := routes(a, config.StaticDir)
-	go a.watchIncomingMessages(ctx)
-	go a.watchCallHistory(ctx)
-	go a.watchModemHealth(ctx)
-	return &Server{handler: handler, cancel: cancel}, nil
+	server := &Server{handler: handler, cancel: cancel, messages: a.messageStore}
+	server.watchers.Add(3)
+	go func() { defer server.watchers.Done(); a.watchIncomingMessages(ctx) }()
+	go func() { defer server.watchers.Done(); a.watchCallHistory(ctx) }()
+	go func() { defer server.watchers.Done(); a.watchModemHealth(ctx) }()
+	return server, nil
 }
 
 func (s *Server) Handler() http.Handler { return s.handler }
-func (s *Server) Close()                { s.cancel() }
+func (s *Server) Close() {
+	s.cancel()
+	s.watchers.Wait()
+	if s.messages != nil {
+		_ = s.messages.close()
+	}
+}
 
 func NewHandler(conn *dbus.Conn, staticDir string) http.Handler {
 	return routes(&api{conn: conn, modemHealth: newModemHealthMonitor(nil)}, staticDir)

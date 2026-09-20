@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -23,14 +24,15 @@ const (
 var phoneNumberPattern = regexp.MustCompile(`^\+?[0-9]{3,20}$`)
 
 type message struct {
-	ID         string `json:"id"`
-	ModemID    string `json:"modemId"`
-	Number     string `json:"number"`
-	SenderName string `json:"senderName,omitempty"`
-	Text       string `json:"text"`
-	Direction  string `json:"direction"`
-	State      string `json:"state"`
-	Timestamp  string `json:"timestamp"`
+	ID             string `json:"id"`
+	ModemMessageID string `json:"-"`
+	ModemID        string `json:"modemId"`
+	Number         string `json:"number"`
+	SenderName     string `json:"senderName,omitempty"`
+	Text           string `json:"text"`
+	Direction      string `json:"direction"`
+	State          string `json:"state"`
+	Timestamp      string `json:"timestamp"`
 }
 
 func (a *api) messages(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +40,13 @@ func (a *api) messages(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	objects, err := a.managedObjects(ctx)
 	if err != nil {
+		if a.messageStore != nil {
+			result, storeErr := a.messageStore.list()
+			if storeErr == nil {
+				writeJSON(w, http.StatusOK, map[string]any{"messages": result, "updatedAt": time.Now().UTC(), "stale": true})
+				return
+			}
+		}
 		writeError(w, http.StatusServiceUnavailable, "读取短信失败", err)
 		return
 	}
@@ -45,6 +54,17 @@ func (a *api) messages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "读取短信内容失败", err)
 		return
+	}
+	if a.messageStore != nil {
+		if err := a.archiveAndCleanMessages(ctx, result, false); err != nil {
+			writeError(w, http.StatusInternalServerError, "保存短信到本地失败", err)
+			return
+		}
+		result, err = a.messageStore.list()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "读取本地短信失败", err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"messages": result, "updatedAt": time.Now().UTC()})
 }
@@ -89,7 +109,7 @@ func (a *api) sendMessage(w http.ResponseWriter, r *http.Request) {
 		writeMessagingError(w, "发送短信失败", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{"id": smsID(smsPath), "status": "sent"})
+	writeJSON(w, http.StatusCreated, map[string]string{"modemMessageId": smsID(smsPath), "status": "sent"})
 }
 
 func (a *api) deleteMessage(w http.ResponseWriter, r *http.Request) {
@@ -105,6 +125,43 @@ func (a *api) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "读取短信失败", err)
 		return
 	}
+	if a.messageStore != nil {
+		a.messageSyncMu.Lock()
+		defer a.messageSyncMu.Unlock()
+		archived, found, err := a.messageStore.get(id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "读取本地短信失败", err)
+			return
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "短信不存在", errors.New("message not found"))
+			return
+		}
+		current, err := a.collectMessages(ctx, objects)
+		if err != nil {
+			writeError(w, http.StatusServiceUnavailable, "读取短信内容失败", err)
+			return
+		}
+		for _, candidate := range current {
+			if messageFingerprint(candidate) == messageFingerprint(archived) {
+				if err := a.deleteModemMessage(ctx, candidate); err != nil {
+					writeMessagingError(w, "删除 modem 短信失败", err)
+					return
+				}
+			}
+		}
+		deleted, err := a.messageStore.delete(id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "删除本地短信失败", err)
+			return
+		}
+		if !deleted {
+			writeError(w, http.StatusNotFound, "短信不存在", errors.New("message not found"))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	smsPath := dbus.ObjectPath("/org/freedesktop/ModemManager1/SMS/" + id)
 	modemPath, err := modemForSMS(objects, smsPath)
 	if err != nil {
@@ -116,6 +173,66 @@ func (a *api) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *api) archiveAndCleanMessages(ctx context.Context, items []message, notifications bool) error {
+	if a.messageStore == nil {
+		return nil
+	}
+	a.messageSyncMu.Lock()
+	terminal := make([]message, 0, len(items))
+	for _, item := range items {
+		if item.State == "received" || item.State == "sent" {
+			terminal = append(terminal, item)
+		}
+	}
+	if err := a.messageStore.archive(terminal); err != nil {
+		a.messageSyncMu.Unlock()
+		return err
+	}
+	for _, item := range terminal {
+		if err := a.deleteModemMessage(ctx, item); err != nil {
+			log.Printf("delete archived modem SMS %s: %v", item.ID, err)
+		}
+	}
+	if !notifications {
+		a.messageSyncMu.Unlock()
+		return nil
+	}
+	if !a.messagesReady {
+		a.messagesReady = true
+		err := a.messageStore.markExistingReceivedNotified()
+		a.messageSyncMu.Unlock()
+		return err
+	}
+	pending, err := a.messageStore.pendingNotifications()
+	a.messageSyncMu.Unlock()
+	if err != nil {
+		return err
+	}
+	for _, item := range pending {
+		report := pushReport{}
+		if a.push != nil {
+			report = a.push.notify(ctx, item)
+		}
+		if report.Subscriptions > 0 && report.Delivered == 0 {
+			continue
+		}
+		if err := a.messageStore.markNotified(item.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *api) deleteModemMessage(ctx context.Context, item message) error {
+	if a.deleteSMS != nil {
+		return a.deleteSMS(ctx, item)
+	}
+	modemPath := dbus.ObjectPath("/org/freedesktop/ModemManager1/Modem/" + item.ModemID)
+	messageID := fallback(item.ModemMessageID, item.ID)
+	smsPath := dbus.ObjectPath("/org/freedesktop/ModemManager1/SMS/" + messageID)
+	return a.conn.Object(mmService, modemPath).CallWithContext(ctx, messagingInterface+".Delete", 0, smsPath).Err
 }
 
 func (a *api) collectMessages(ctx context.Context, objects managedObjects) ([]message, error) {
@@ -146,7 +263,8 @@ func messageFromProps(path, modemPath dbus.ObjectPath, props map[string]dbus.Var
 	if number(props, "PduType") == 2 {
 		direction = "sent"
 	}
-	return message{ID: smsID(path), ModemID: modemID(modemPath), Number: text(props, "Number"), Text: text(props, "Text"), Direction: direction, State: smsState(number(props, "State")), Timestamp: text(props, "Timestamp")}
+	id := smsID(path)
+	return message{ID: id, ModemMessageID: id, ModemID: modemID(modemPath), Number: text(props, "Number"), Text: text(props, "Text"), Direction: direction, State: smsState(number(props, "State")), Timestamp: text(props, "Timestamp")}
 }
 
 func selectMessagingModem(objects managedObjects, requested string) (dbus.ObjectPath, error) {

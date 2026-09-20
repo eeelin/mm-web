@@ -25,7 +25,8 @@ ModemManager, udev, and the modem devices.
 
 - Read live modem inventory and status directly from the host ModemManager
   service over system D-Bus.
-- Read, search, send, and delete SMS messages through ModemManager.
+- Read, search, send, and delete SMS messages, with local SQLite archival that
+  safely frees limited modem storage.
 - List detected modems.
 - Show modem registration, access technology, operator, SIM status, and bearer
   status.
@@ -42,7 +43,10 @@ phone. System Settings opens the detected modem list and device details. The
 Messages app groups real SMS records into conversations and supports composing,
 sending, and deleting conversations. It refreshes while the Messages app is
 open and can deliver privacy-preserving Web Push notifications for newly
-received SMS messages while the frontend is closed. Phone provides real
+received SMS messages while the frontend is closed. Complete messages are
+committed to `messages.db` in the persistent data directory before their modem
+copies are deleted, preventing full modem storage from blocking new SMS while
+keeping conversation history available. Phone provides real
 ModemManager Voice dialing, live call state, hangup, and in-call DTMF controls;
 audio remains on the host/modem voice path rather than passing through the browser.
 Recent incoming and outgoing calls are retained in the configured data directory,
@@ -112,7 +116,8 @@ Web Push requires HTTPS outside localhost. On iPhone and iPad, add mmOS to the
 Home Screen, open that installed app, enter Messages, and tap the bell to grant
 notification permission. The server creates VAPID keys on first startup and
 stores keys and browser subscriptions in `MM_WEB_DATA_DIR` (`/var/lib/mm-web`
-in the image), so that directory must persist across container replacements.
+in the image). The local SMS archive is stored there as `messages.db`, so that
+directory must persist across container replacements.
 
 For staging diagnostics, set `MM_WEB_DEBUG_PUSH_TOKEN` on the API and run
 `MM_WEB_DEBUG_PUSH_TOKEN=... scripts/debug-push.sh`. The endpoint is disabled

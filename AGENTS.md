@@ -34,11 +34,13 @@ Initial implementation choices:
 - Runtime integration: Go D-Bus client talking to
   `org.freedesktop.ModemManager1`.
 - Packaging: Docker image plus Docker Compose example.
-- Persistence: no required database for the MVP.
+- Persistence: SQLite in `MM_WEB_DATA_DIR` for the SMS archive; no external
+  database service is required.
 
 Allowed later additions:
 
-- SQLite for signal history, operation logs, user preferences, and SMS cache.
+- Additional SQLite tables for signal history, operation logs, and user
+  preferences.
 - WebSocket if bidirectional realtime behavior becomes necessary.
 - A host-side agent if the simple D-Bus mount becomes too limiting.
 
@@ -71,6 +73,9 @@ Avoid adding these before there is a concrete need:
 - Add a short human-readable explanation next to raw errors.
 - Use timeouts for every control action.
 - Disable duplicate taps while an action is in flight.
+- Never delete a terminal SMS from the modem until its complete contents have
+  been committed to the local SQLite archive. A local write failure must leave
+  the modem copy untouched for retry.
 
 ## MVP Boundary
 

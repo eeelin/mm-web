@@ -50,6 +50,14 @@ The application generates a VAPID key pair on first startup. Persist the
 after the keys change. `MM_WEB_VAPID_SUBJECT` may be set to an administrator
 contact such as `mailto:admin@example.com`.
 
+The same volume contains `messages.db`, the local SQLite SMS archive. For every
+complete received or sent SMS, mm-web commits the full message locally before
+asking ModemManager to delete its modem copy. Messages that are still receiving
+or sending, and any message whose local write failed, remain on the modem.
+Persist and back up this volume if SMS history must survive container
+replacement. The Messages screen continues to show the archived history when
+the modem is temporarily unavailable.
+
 The public site must use HTTPS. For iOS/iPadOS, install the site to the Home
 Screen first, open the installed mmOS app, then enable notifications from the
 Messages screen. Browser tabs on iOS cannot subscribe without the Home Screen
