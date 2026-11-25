@@ -1,5 +1,6 @@
+import { Activity, BatteryMedium, Bell, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Code2, Copy, ExternalLink, Globe, Info, LockKeyhole, MessageSquare, Phone, Radio, RefreshCw, Server, Settings, ShieldCheck, Signal, Smartphone, Wifi, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Activity, BatteryMedium, Bell, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Copy, Code2, ExternalLink, Info, LockKeyhole, MessageSquare, Phone, Radio, RefreshCw, Server, Settings, ShieldCheck, Signal, Smartphone, Wifi, XCircle } from 'lucide-react';
+import { LOCALES, useI18n, dateTime, formatDayHeader, formatUptime, modemStates, timeOfDay, translate, type Locale } from './i18n';
 import { Messages } from './Messages';
 import { Phone as PhoneApp } from './Phone';
 import { clearUnread, emptyUnreadState, readUnreadState, type UnreadState } from './unread';
@@ -7,6 +8,7 @@ import { clearUnread, emptyUnreadState, readUnreadState, type UnreadState } from
 type Modem = { id:string; name:string; model:string; state:string; network:string; tech:string; signal:number; sim:string; imei:string; firmware:string; port:string; manufacturer:string; deviceId:string; device:string; drivers:string[]; plugin:string; ports:string[]; ownNumbers:string[]; powerState:string; capabilities:string; supportedModes:string; currentModes:string; ipFamilies:string; operatorCode:string; registration:string; packetService:string; unlockRequired:string; unlockRetries:string[] };
 
 export function App() {
+  const { t, locale } = useI18n();
   const [screen, setScreen] = useState<'home'|'settings'|'modems'|'detail'|'messages'|'phone'|'about'|'diagnostics'>(() => {const requested=new URLSearchParams(location.search).get('screen');return requested==='messages'||requested==='phone'||requested==='diagnostics'?requested:'home'});
   const [modems, setModems] = useState<Modem[]>([]);
   const [selected, setSelected] = useState<Modem | null>(null);
@@ -14,7 +16,7 @@ export function App() {
   const [time, setTime] = useState('09:41');
   const [unread,setUnread]=useState<UnreadState>(emptyUnreadState);
   useEffect(()=>{let alive=true;const refresh=()=>void readUnreadState().then(state=>{if(alive)setUnread(state)});const changed=(event:Event)=>{const state=(event as CustomEvent<UnreadState>).detail;if(state)setUnread(state);else refresh()};refresh();window.addEventListener('mmos-unread-change',changed);navigator.serviceWorker?.addEventListener('message',changed);return()=>{alive=false;window.removeEventListener('mmos-unread-change',changed);navigator.serviceWorker?.removeEventListener('message',changed)}},[]);
-  useEffect(() => { const tick=()=>setTime(new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})); tick(); const id=setInterval(tick,30000); return()=>clearInterval(id)},[]);
+  useEffect(() => { const tick=()=>setTime(timeOfDay(new Date(), locale)); tick(); const id=setInterval(tick,30000); return()=>clearInterval(id)},[locale]);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -27,23 +29,24 @@ export function App() {
         setSelected(current => data.modems.find(m => m.id === current?.id) ?? data.modems[0] ?? null);
         setError('');
       } catch {
-        if (alive) setError('无法连接 ModemManager，正在重试');
+        if (alive) setError(t('connectRetrying'));
       }
     };
     load();
     const id = window.setInterval(load, 5000);
     return () => { alive = false; window.clearInterval(id); };
-  }, []);
+  }, [t]);
   useEffect(()=>{
     let alive=true;
     const check=async()=>{try{const response=await fetch('/api/calls',{cache:'no-store'});if(!response.ok)return;const data=await response.json() as {calls:{state:string}[]};if(alive&&data.calls.some(call=>call.state==='ringing-in'))setScreen('phone')}catch{}};
     check();const events=new EventSource('/api/calls/events');events.addEventListener('call-state',check);const fallback=window.setInterval(check,3000);return()=>{alive=false;events.close();window.clearInterval(fallback)};
   },[]);
   const goHome=()=>setScreen('home');
+  // Canonical comparison value: ModemManager state strings come from the backend (modemState()).
   const active = modems.find(m=>m.state==='已连接') ?? modems[0] ?? null;
   const showModem=(m:Modem)=>{setSelected(m);setScreen('detail')};
   return <main className="stage">
-    <section className="phone" aria-label="mmOS 虚拟手机">
+    <section className="phone" aria-label={t('appAria')}>
       <div className="statusbar"><strong>{time}</strong><div className="island"/><div className="status-icons"><Signal size={15}/><Wifi size={15}/><BatteryMedium size={18}/></div></div>
       <div className="screen">
         {screen==='home' && <Home onOpen={()=>setScreen('settings')} onPhone={()=>setScreen('phone')} onMessages={()=>setScreen('messages')} onAbout={()=>setScreen('about')} onDiagnostics={()=>setScreen('diagnostics')} active={active} error={error} unread={unread}/>}
@@ -55,73 +58,106 @@ export function App() {
         {screen==='about' && <About onBack={()=>setScreen('settings')}/>}
         {screen==='diagnostics' && <Diagnostics onBack={goHome}/>}
       </div>
-      {screen!=='home' && <button className="home-indicator" aria-label="返回桌面" onClick={goHome}/>}
+      {screen!=='home' && <button className="home-indicator" aria-label={t('backToDesktop')} onClick={goHome}/>}
       {screen==='home' && <div className="home-indicator decorative"/>}
     </section>
-    <aside className="product-note"><span>mmOS</span><strong>ModemManager<br/>控制台</strong><p>在浏览器中，像使用手机一样管理网络设备。</p><div className="live"><i/> 系统运行正常</div></aside>
+    <aside className="product-note"><span>mmOS</span><strong>ModemManager<br/>{t('productTitle')}</strong><p>{t('productNote')}</p><div className="live"><i/> {t('systemRunning')}</div></aside>
   </main>
 }
 
-function Home({onOpen,onPhone,onMessages,onAbout,onDiagnostics,active,error,unread}:{onOpen:()=>void;onPhone:()=>void;onMessages:()=>void;onAbout:()=>void;onDiagnostics:()=>void;active:Modem|null;error:string;unread:UnreadState}) { return <div className="wallpaper">
-  <header className="home-head"><p>8月17日 · 星期一</p><h1>早上好</h1></header>
-  <section className="network-widget"><div><small>移动网络</small><h2>{active?.network ?? (error ? '服务不可用' : '正在读取设备')}</h2><p><span className="dot"/> {error || (active ? `${active.tech} · 信号 ${active.signal}%` : '未检测到调制解调器')}</p></div><SignalBars value={active?.signal ?? 0}/></section>
-  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>系统设置</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/>{unread.phone>0&&<i className="app-badge"/>}</span><b>电话</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/>{unread.messages>0&&<i className="app-badge"/>}</span><b>信息</b></button><button className="app" onClick={onDiagnostics}><span className="app-icon diagnostics-icon"><Activity/>{unread.diagnostics>0&&<i className="app-badge"/>}</span><b>检测</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>关于</b></button></div>
+function Home({onOpen,onPhone,onMessages,onAbout,onDiagnostics,active,error,unread}:{onOpen:()=>void;onPhone:()=>void;onMessages:()=>void;onAbout:()=>void;onDiagnostics:()=>void;active:Modem|null;error:string;unread:UnreadState}) {
+  const { t, locale } = useI18n();
+  return <div className="wallpaper">
+  <header className="home-head"><p>{formatDayHeader(new Date(), locale)}</p><h1>{t('homeGreeting')}</h1></header>
+  <section className="network-widget"><div><small>{t('homeMobileNetwork')}</small><h2>{active?.network ?? (error ? t('serviceUnavailable') : t('readingDevice'))}</h2><p><span className="dot"/> {error || (active ? `${active.tech} · ${t('signalPercent', {n: active.signal})}` : t('noModem'))}</p></div><SignalBars value={active?.signal ?? 0}/></section>
+  <div className="app-grid"><button className="app" onClick={onOpen}><span className="app-icon settings-icon"><Settings/></span><b>{t('homeSettings')}</b></button><button className="app" onClick={onPhone}><span className="app-icon phone-icon"><Phone/>{unread.phone>0&&<i className="app-badge"/>}</span><b>{t('homePhone')}</b></button><button className="app" onClick={onMessages}><span className="app-icon message-icon"><MessageSquare/>{unread.messages>0&&<i className="app-badge"/>}</span><b>{t('homeMessages')}</b></button><button className="app" onClick={onDiagnostics}><span className="app-icon diagnostics-icon"><Activity/>{unread.diagnostics>0&&<i className="app-badge"/>}</span><b>{t('homeDiagnostics')}</b></button><button className="app" onClick={onAbout}><span className="app-icon"><Info/></span><b>{t('homeAbout')}</b></button></div>
   <div className="dock"><button className="dock-icon phone-icon" onClick={onPhone}><Phone/>{unread.phone>0&&<i className="app-badge"/>}</button><button className="dock-icon" onClick={onMessages}><MessageSquare/>{unread.messages>0&&<i className="app-badge"/>}</button><button className="dock-icon settings-icon" onClick={onOpen}><Settings/></button></div>
 </div>}
 
 type HealthState = {dbusAvailable:boolean;modemsOnline:boolean;atAvailable:boolean;modemIds:string[];checkedAt:string};
 
 function Diagnostics({onBack}:{onBack:()=>void}) {
+  const { t, locale } = useI18n();
   const [health,setHealth]=useState<HealthState|null>(null); const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
   const [interval,setIntervalSeconds]=useState(120); const [savingInterval,setSavingInterval]=useState(false);
-  const load=async()=>{setLoading(true);try{const response=await fetch('/api/health',{cache:'no-store'});const data=await response.json() as {modemManager?:HealthState};if(!data.modemManager)throw new Error();setHealth(data.modemManager);setError('');void clearUnread('diagnostics')}catch{setError('无法连接 mm-web 后端')}finally{setLoading(false)}};
-  useEffect(()=>{void load();fetch('/api/settings/health',{cache:'no-store'}).then(response=>response.json()).then((data:{checkIntervalSeconds:number})=>setIntervalSeconds(data.checkIntervalSeconds)).catch(()=>{});const timer=window.setInterval(()=>void load(),10000);return()=>window.clearInterval(timer)},[]);
-  const changeInterval=async(seconds:number)=>{setSavingInterval(true);try{const response=await fetch('/api/settings/health',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkIntervalSeconds:seconds})});if(!response.ok)throw new Error();setIntervalSeconds(seconds)}catch{setError('保存检测间隔失败')}finally{setSavingInterval(false)}};
+  const load=async()=>{setLoading(true);try{const response=await fetch('/api/health',{cache:'no-store'});const data=await response.json() as {modemManager?:HealthState};if(!data.modemManager)throw new Error();setHealth(data.modemManager);setError('');void clearUnread('diagnostics')}catch{setError(t('backendUnreachable'))}finally{setLoading(false)}};
+  useEffect(()=>{void load();fetch('/api/settings/health',{cache:'no-store'}).then(response=>response.json()).then((data:{checkIntervalSeconds:number})=>setIntervalSeconds(data.checkIntervalSeconds)).catch(()=>{});const timer=window.setInterval(()=>void load(),10000);return()=>window.clearInterval(timer)},[t]);
+  const changeInterval=async(seconds:number)=>{setSavingInterval(true);try{const response=await fetch('/api/settings/health',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkIntervalSeconds:seconds})});if(!response.ok)throw new Error();setIntervalSeconds(seconds)}catch{setError(t('diagnosticsIntervalSaveFailed'))}finally{setSavingInterval(false)}};
   const healthy=Boolean(health?.dbusAvailable&&health.modemsOnline&&health.atAvailable);
-  return <div className="page diagnostics-page"><Top title="检测" onBack={onBack}/><div className="content">
-    <section className={`health-hero ${healthy?'ok':'bad'}`}>{healthy?<CheckCircle2/>:<XCircle/>}<div><h2>{loading&&!health?'正在检测':healthy?'运行正常':'检测到异常'}</h2><p>{healthy?'ModemManager 与调制解调器通信正常':'部分电话、信息或设备状态可能不可用'}</p></div></section>
+  return <div className="page diagnostics-page"><Top title={t('diagnosticsTitle')} onBack={onBack}/><div className="content">
+    <section className={`health-hero ${healthy?'ok':'bad'}`}>{healthy?<CheckCircle2/>:<XCircle/>}<div><h2>{loading&&!health?t('diagnosticsChecking'):healthy?t('diagnosticsHealthy'):t('diagnosticsAbnormal')}</h2><p>{healthy?t('diagnosticsNormalBody'):t('diagnosticsPartial')}</p></div></section>
     {error&&<p className="messages-error">{error}</p>}
-    <SectionLabel text="检测项目"/><div className="health-list">
-      <HealthRow label="ModemManager D-Bus" detail="后端与 ModemManager 的系统总线连接" ok={health?.dbusAvailable}/>
-      <HealthRow label="调制解调器" detail={health?.modemIds.length?`已发现 ${health.modemIds.length} 台设备 · 编号 ${health.modemIds.join('、')}`:'是否发现可用的蜂窝设备'} ok={health?.modemsOnline}/>
-      <HealthRow label="AT 控制通道" detail="电话、短信与实时信号所需的控制端口" ok={health?.atAvailable}/>
+    <SectionLabel text={t('diagnosticsSectionChecks')}/><div className="health-list">
+      <HealthRow label={t('diagnosticsDbusLabel')} detail={t('diagnosticsDbusDetail')} ok={health?.dbusAvailable}/>
+      <HealthRow label={t('diagnosticsModemLabel')} detail={health?.modemIds.length?t('diagnosticsModemsFound',{n:health.modemIds.length,ids:health.modemIds.join('、')}):t('diagnosticsModemsNone')} ok={health?.modemsOnline}/>
+      <HealthRow label={t('diagnosticsAtLabel')} detail={t('diagnosticsAtDetail')} ok={health?.atAvailable}/>
     </div>
-    <p className="health-time">{health?.checkedAt?`后端检测于 ${new Date(health.checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}`:'等待后端检测结果'}</p>
-    <button className="primary diagnostics-refresh" onClick={()=>void load()} disabled={loading}><RefreshCw className={loading?'spinning':''}/>{loading?'检测中':'立即检测'}</button>
-    <SectionLabel text="检测设置"/><label className="health-config"><span><b>自动检测间隔</b><small>默认每 2 分钟检测一次</small></span><select value={interval} disabled={savingInterval} onChange={event=>void changeInterval(Number(event.target.value))}><option value="30">30 秒</option><option value="60">1 分钟</option><option value="120">2 分钟</option><option value="300">5 分钟</option><option value="600">10 分钟</option></select></label>
-    <div className="info-box"><Info/><p><b>后台持续检测</b><br/>连续三次异常后发送 Push 通知。同一次故障只提醒一次，恢复后会重新启用告警。</p></div>
+    <p className="health-time">{health?.checkedAt?t('diagnosticsCheckedAt',{time:timeOfDay(new Date(health.checkedAt), locale)}):t('diagnosticsAwaitingResult')}</p>
+    <button className="primary diagnostics-refresh" onClick={()=>void load()} disabled={loading}><RefreshCw className={loading?'spinning':''}/>{loading?t('diagnosticsChecking'):t('diagnosticsRefresh')}</button>
+    <SectionLabel text={t('diagnosticsSectionSettings')}/><label className="health-config"><span><b>{t('diagnosticsAutoInterval')}</b><small>{t('diagnosticsDefaultIntervalNote')}</small></span><select value={interval} disabled={savingInterval} onChange={event=>void changeInterval(Number(event.target.value))}><option value="30">{t('diagnosticsOpt30s')}</option><option value="60">{t('diagnosticsOpt1m')}</option><option value="120">{t('diagnosticsOpt2m')}</option><option value="300">{t('diagnosticsOpt5m')}</option><option value="600">{t('diagnosticsOpt10m')}</option></select></label>
+    <div className="info-box"><Info/><p><b>{t('diagnosticsContinuousLabel')}</b><br/>{t('diagnosticsContinuousBody')}</p></div>
   </div></div>
 }
 
-function HealthRow({label,detail,ok}:{label:string;detail:string;ok:boolean|undefined}) {return <div className="health-row"><span className={ok?'ok':ok===false?'bad':'pending'}>{ok?<CheckCircle2/>:ok===false?<XCircle/>:<Activity/>}</span><div><b>{label}</b><small>{detail}</small></div><em>{ok?'正常':ok===false?'异常':'检测中'}</em></div>}
+function HealthRow({label,detail,ok}:{label:string;detail:string;ok:boolean|undefined}) {
+  const { t } = useI18n();
+  return <div className="health-row"><span className={ok?'ok':ok===false?'bad':'pending'}>{ok?<CheckCircle2/>:ok===false?<XCircle/>:<Activity/>}</span><div><b>{label}</b><small>{detail}</small></div><em>{ok?t('stateOk'):ok===false?t('stateBad'):t('stateChecking')}</em></div>
+}
 
-function Top({title,onBack,eyebrow}:{title:string;onBack:()=>void;eyebrow?:string}) {return <header className="appbar"><button onClick={onBack} aria-label="返回"><ChevronLeft/></button><div>{eyebrow&&<small>{eyebrow}</small>}<h1>{title}</h1></div><span/></header>}
-function SettingsRoot({onBack,onModems,onAbout,active,count}:{onBack:()=>void;onModems:()=>void;onAbout:()=>void;active:Modem|null;count:number}) {return <div className="page"><Top title="系统设置" onBack={onBack}/><div className="content"><section className="device-card"><div className="device-avatar"><Smartphone/></div><div><h2>mmOS 控制台</h2><p>本机 · 在线</p></div><span className="online-dot"/></section><SectionLabel text="网络与设备"/><button className="setting-row" onClick={onModems}><span className="row-icon blue"><Radio/></span><span><b>蜂窝调制解调器</b><small>{active?.name ?? '未检测到设备'}</small></span><em>{count} 台</em><ChevronRight/></button><div className="setting-row disabled"><span className="row-icon green"><Wifi/></span><span><b>无线网络</b><small>由主机系统管理</small></span><em>不可用</em></div><SectionLabel text="通知"/><PushPreviewSetting/><SectionLabel text="系统"/><div className="setting-row disabled"><span className="row-icon purple"><ShieldCheck/></span><span><b>ModemManager</b><small>服务运行正常</small></span><em className="success">已连接</em></div><button className="setting-row" onClick={onAbout}><span className="row-icon gray"><CircleHelp/></span><span><b>关于 mmOS</b><small>版本 0.2.0</small></span><ChevronRight/></button></div></div>}
+function Top({title,onBack,eyebrow}:{title:string;onBack:()=>void;eyebrow?:string}) {
+  const { t } = useI18n();
+  return <header className="appbar"><button onClick={onBack} aria-label={t('back')}><ChevronLeft/></button><div>{eyebrow&&<small>{eyebrow}</small>}<h1>{title}</h1></div><span/></header>
+}
+function SettingsRoot({onBack,onModems,onAbout,active,count}:{onBack:()=>void;onModems:()=>void;onAbout:()=>void;active:Modem|null;count:number}) {
+  const { t } = useI18n();
+  return <div className="page"><Top title={t('settingsTitle')} onBack={onBack}/><div className="content"><section className="device-card"><div className="device-avatar"><Smartphone/></div><div><h2>{t('settingsConsoleTitle')}</h2><p>{t('settingsLocalOnline')}</p></div><span className="online-dot"/></section><SectionLabel text={t('settingsSectionNetworkDevices')}/><button className="setting-row" onClick={onModems}><span className="row-icon blue"><Radio/></span><span><b>{t('settingsModemRow')}</b><small>{active?.name ?? t('settingsNoDevice')}</small></span><em>{t('settingsCountSuffix', {n: count})}</em><ChevronRight/></button><div className="setting-row disabled"><span className="row-icon green"><Wifi/></span><span><b>{t('settingsSectionWireless')}</b><small>{t('settingsManagedByHost')}</small></span><em>{t('settingsUnavailable')}</em></div><SectionLabel text={t('settingsSectionNotifications')}/><PushPreviewSetting/><SectionLabel text={t('settingsSectionSystem')}/><div className="setting-row disabled"><span className="row-icon purple"><ShieldCheck/></span><span><b>ModemManager</b><small>{t('settingsSystemStatus')}</small></span><em className="success">{t('settingsConnected')}</em></div><button className="setting-row" onClick={onAbout}><span className="row-icon gray"><CircleHelp/></span><span><b>{t('settingsAboutTitle')}</b><small>{t('settingsVersionLabel', {v:'0.2.0'})}</small></span><ChevronRight/></button><SectionLabel text={t('settingsSectionLanguage')}/><LanguageSetting/></div></div>}
 
 function PushPreviewSetting() {
+  const { t } = useI18n();
   const [enabled,setEnabled]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
-  useEffect(()=>{fetch('/api/settings/push',{cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{showMessageContent:boolean}>}).then(data=>{setEnabled(data.showMessageContent);setError('')}).catch(()=>setError('读取设置失败')).finally(()=>setLoading(false))},[]);
-  const toggle=async()=>{if(loading)return;const next=!enabled;setLoading(true);setError('');try{const response=await fetch('/api/settings/push',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({showMessageContent:next})});if(!response.ok)throw new Error();setEnabled(next)}catch{setError('保存失败')}finally{setLoading(false)}};
-  return <button className="setting-row" onClick={toggle} disabled={loading} role="switch" aria-checked={enabled}><span className="row-icon red"><Bell/></span><span><b>显示信息内容</b><small>{error || (enabled?'通知显示号码和信息正文':'通知仅提示收到新信息')}</small></span><i className={`toggle ${enabled?'on':''}`}><i/></i></button>
+  useEffect(()=>{fetch('/api/settings/push',{cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{showMessageContent:boolean}>}).then(data=>{setEnabled(data.showMessageContent);setError('')}).catch(()=>setError(t('settingsReadSettingsFailed'))).finally(()=>setLoading(false))},[t]);
+  const toggle=async()=>{if(loading)return;const next=!enabled;setLoading(true);setError('');try{const response=await fetch('/api/settings/push',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({showMessageContent:next})});if(!response.ok)throw new Error();setEnabled(next)}catch{setError(t('saveFailed'))}finally{setLoading(false)}};
+  return <button className="setting-row" onClick={toggle} disabled={loading} role="switch" aria-checked={enabled}><span className="row-icon red"><Bell/></span><span><b>{t('settingsShowContentTitle')}</b><small>{error || (enabled?t('settingsShowContentBody'):t('settingsShowContentHint'))}</small></span><i className={`toggle ${enabled?'on':''}`}><i/></i></button>
+}
+
+function LanguageSetting() {
+  const { t, locale, setLocale } = useI18n();
+  return <div className="setting-row language-row">
+    <span className="row-icon gray"><Globe/></span>
+    <span><b>{t('settingsLanguageTitle')}</b><small>{t('settingsLanguageNote')}</small></span>
+    <select className="language-select" value={locale} aria-label={t('settingsLanguageLabel')} onChange={event=>setLocale(event.target.value as Locale)}>{LOCALES.map(entry=>(<option key={entry.locale} value={entry.locale}>{entry.name}</option>))}</select>
+    <ChevronRight/>
+  </div>
 }
 
 type AboutInfo = {version:string;commit:string;buildTime:string;goVersion:string;os:string;arch:string;uptimeSeconds:number;serverTime:string;modemManager:string;modemManagerVersion:string;pushSubscriptions:number;showMessageContent:boolean};
 
 function About({onBack}:{onBack:()=>void}) {
+  const { t, locale } = useI18n();
   const [info,setInfo]=useState<AboutInfo|null>(null); const [error,setError]=useState(''); const [copied,setCopied]=useState(false); const [subscribed,setSubscribed]=useState(false);
   const standalone=window.matchMedia('(display-mode: standalone)').matches; const permission='Notification' in window?Notification.permission:'unsupported';
-  useEffect(()=>{fetch('/api/about',{cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<AboutInfo>}).then(setInfo).catch(()=>setError('无法读取系统信息'));if('serviceWorker'in navigator&&'PushManager'in window)navigator.serviceWorker.ready.then(registration=>registration.pushManager.getSubscription()).then(value=>setSubscribed(Boolean(value))).catch(()=>{})},[]);
+  useEffect(()=>{fetch('/api/about',{cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<AboutInfo>}).then(setInfo).catch(()=>setError(t('backendUnreachable')));if('serviceWorker'in navigator&&'PushManager'in window)navigator.serviceWorker.ready.then(registration=>registration.pushManager.getSubscription()).then(value=>setSubscribed(Boolean(value))).catch(()=>{})},[t]);
   const diagnostics=()=>[`mmOS ${info?.version??'unknown'}`,`Commit: ${info?.commit||'development'}`,`Platform: ${info?.os??'unknown'}/${info?.arch??'unknown'}`,`ModemManager: ${info?.modemManager??'unknown'}${info?.modemManagerVersion?` (${info.modemManagerVersion})`:''}`,`Web Push: ${subscribed?'subscribed':'not subscribed'}`,`PWA: ${standalone?'standalone':'browser'}`,`Notification: ${permission}`].join('\n');
   const copy=async()=>{await navigator.clipboard.writeText(diagnostics());setCopied(true);window.setTimeout(()=>setCopied(false),1800)};
-  return <div className="page about-page"><Top title="关于 mmOS" onBack={onBack}/><div className="content"><section className="about-hero"><span><Smartphone/></span><h2>mmOS</h2><p>ModemManager 控制台</p><em>版本 {info?.version??'—'}</em></section>{error&&<p className="messages-error">{error}</p>}<SectionLabel text="服务状态"/><div className="about-list"><AboutRow icon={<Server/>} label="mm-web 后端" value={info?'运行正常':'读取中'} ok={Boolean(info)}/><AboutRow icon={<Radio/>} label="ModemManager" value={info?.modemManager==='connected'?'已连接':'不可用'} ok={info?.modemManager==='connected'}/><AboutRow icon={<Bell/>} label="Web Push" value={subscribed?'本机已订阅':`${info?.pushSubscriptions??0} 个订阅`} ok={subscribed}/><AboutRow icon={<Smartphone/>} label="PWA 模式" value={standalone?'已安装':'浏览器访问'} ok={standalone}/></div><SectionLabel text="运行环境"/><dl className="specs about-specs"><div><dt>构建版本</dt><dd>{info?.commit||'development'}</dd></div><div><dt>ModemManager</dt><dd>{info?.modemManagerVersion||'—'}</dd></div><div><dt>运行平台</dt><dd>{info?`${info.os}/${info.arch}`:'—'}</dd></div><div><dt>Go 版本</dt><dd>{info?.goVersion||'—'}</dd></div><div><dt>运行时间</dt><dd>{formatUptime(info?.uptimeSeconds??0)}</dd></div><div><dt>服务器时间</dt><dd>{info?.serverTime?new Date(info.serverTime).toLocaleString('zh-CN'):'—'}</dd></div></dl><SectionLabel text="数据与隐私"/><div className="privacy-card"><LockKeyhole/><p><b>数据保留在本机</b><span>短信来自本机 ModemManager，不会由 mmOS 上传。{info?.showMessageContent?'通知当前会显示号码和短信正文，内容可能出现在锁屏上。':'通知当前不显示号码和短信正文。'}</span></p></div><div className="about-actions"><button onClick={copy}>{copied?<CheckCircle2/>:<Copy/>}{copied?'已复制':'复制诊断信息'}</button><a href="https://github.com/eeelin/mm-web" target="_blank" rel="noreferrer"><Code2/>GitHub<ExternalLink/></a></div></div></div>
+  return <div className="page about-page"><Top title={t('aboutTitle')} onBack={onBack}/><div className="content"><section className="about-hero"><span><Smartphone/></span><h2>mmOS</h2><p>ModemManager</p><em>{t('settingsVersionLabel', {v: info?.version??'—'})}</em></section>{error&&<p className="messages-error">{error}</p>}<SectionLabel text={t('aboutStatusSection')}/><div className="about-list"><AboutRow icon={<Server/>} label={t('settingsBackendName')} value={info?t('aboutBackendOnline'):t('aboutBackendLoading')} ok={Boolean(info)}/><AboutRow icon={<Radio/>} label="ModemManager" value={info?.modemManager==='connected'?t('settingsConnected'):t('settingsUnavailable')} ok={info?.modemManager==='connected'}/><AboutRow icon={<Bell/>} label="Web Push" value={subscribed?t('aboutPushSubscribed'):t('aboutPushCount',{n:info?.pushSubscriptions??0})} ok={subscribed}/><AboutRow icon={<Smartphone/>} label={t('aboutPWAName')} value={standalone?t('aboutInstalled'):t('aboutBrowser')} ok={standalone}/></div><SectionLabel text={t('aboutEnvironmentSection')}/><dl className="specs about-specs"><div><dt>{t('aboutSpecsBuild')}</dt><dd>{info?.commit||'development'}</dd></div><div><dt>{t('aboutSpecsModemVersion')}</dt><dd>{info?.modemManagerVersion||'—'}</dd></div><div><dt>{t('aboutSpecsPlatform')}</dt><dd>{info?`${info.os}/${info.arch}`:'—'}</dd></div><div><dt>{t('aboutSpecsGoVersion')}</dt><dd>{info?.goVersion||'—'}</dd></div><div><dt>{t('aboutSpecsUptime')}</dt><dd>{formatUptime(info?.uptimeSeconds??0, locale)}</dd></div><div><dt>{t('aboutSpecsServerTime')}</dt><dd>{info?dateTime(new Date(info.serverTime), locale):'—'}</dd></div></dl><SectionLabel text={t('aboutPrivacySection')}/><div className="privacy-card"><LockKeyhole/><p><b>{t('aboutDataLocal')}</b><span>{t('aboutSmsLocal')}{info?.showMessageContent?t('aboutPushWithContent'):t('aboutPushWithoutContent')}</span></p></div><div className="about-actions"><button onClick={copy}>{copied?<CheckCircle2/>:<Copy/>}{copied?t('aboutCopied'):t('aboutCopyDiagnostics')}</button><a href="https://github.com/eeelin/mm-web" target="_blank" rel="noreferrer"><Code2/>GitHub<ExternalLink/></a></div></div></div>
 }
 
 function AboutRow({icon,label,value,ok}:{icon:React.ReactNode;label:string;value:string;ok:boolean}) {return <div className="about-row"><span>{icon}</span><b>{label}</b><em className={ok?'success':''}>{value}</em></div>}
-function formatUptime(seconds:number){if(seconds<60)return `${seconds} 秒`;if(seconds<3600)return `${Math.floor(seconds/60)} 分钟`;if(seconds<86400)return `${Math.floor(seconds/3600)} 小时`;return `${Math.floor(seconds/86400)} 天`}
 function SectionLabel({text}:{text:string}) {return <h3 className="section-label">{text}</h3>}
 
-function ModemList({active,modems,onBack,onDetail}:{active:string;modems:Modem[];onBack:()=>void;onDetail:(m:Modem)=>void}) {return <div className="page"><Top title="调制解调器" eyebrow="网络与设备" onBack={onBack}/><div className="content"><p className="lead">来自本机 ModemManager 的实时设备。</p><div className="modem-list">{modems.map(m=><article className={`modem-card ${active===m.id?'active':''}`} key={m.id}><button className="modem-main" onClick={()=>onDetail(m)}><span className="radio-check">{active===m.id&&<i/>}</span><span className="modem-copy"><span className="modem-title"><b>{m.name}</b>{active===m.id&&<em>当前设备</em>}</span><small>{m.model} · {m.port}</small><span className="network-line"><i className={m.state==='已连接'?'connected':''}/>{m.network} · {m.tech}<SignalBars value={m.signal}/></span></span></button><button className="details" onClick={()=>onDetail(m)} aria-label={`查看${m.name}详情`}><ChevronRight/></button></article>)}</div>{modems.length===0&&<div className="info-box"><Info/><p><b>未检测到调制解调器</b><br/>请确认 ModemManager 正在运行并已识别设备。</p></div>}</div></div>}
+function ModemList({active,modems,onBack,onDetail}:{active:string;modems:Modem[];onBack:()=>void;onDetail:(m:Modem)=>void}) {
+  const { t } = useI18n();
+  return <div className="page"><Top title={t('modemsTitle')} eyebrow={t('modemsEyebrow')} onBack={onBack}/><div className="content"><p className="lead">{t('modemsLead')}</p><div className="modem-list">{modems.map(m=>(<article className={`modem-card ${active===m.id?'active':''}`} key={m.id}><button className="modem-main" onClick={()=>onDetail(m)}><span className="radio-check">{active===m.id&&<i/>}</span><span className="modem-copy"><span className="modem-title"><b>{m.name}</b>{active===m.id&&<em>{t('modemsCurrentDevice')}</em>}</span><small>{m.model} · {m.port}</small><span className="network-line"><i className={m.state==='已连接'?'connected':''}/>{m.network} · {m.tech}<SignalBars value={m.signal}/></span></span></button><button className="details" onClick={()=>onDetail(m)} aria-label={t('modemsViewDetails',{name:m.name})}><ChevronRight/></button></article>))}</div>{modems.length===0&&<div className="info-box"><Info/><p><b>{t('modemsNone')}</b><br/>{t('modemsCheckRunning')}</p></div>}</div></div>
+}
 
-function Detail({modem,active,onBack}:{modem:Modem;active:boolean;onBack:()=>void}) {return <div className="page"><Top title="设备详情" onBack={onBack}/><div className="content"><div className="detail-hero"><div className="big-device"><Radio/></div><h2>{modem.name}</h2><p><i/> {modem.state} · {modem.network}</p></div><SectionLabel text="状态与网络"/><SpecList rows={[["电源状态",modem.powerState],["注册状态",modem.registration],["分组服务",modem.packetService],["运营商",modem.network],["运营商代码",modem.operatorCode],["接入技术",modem.tech],["信号质量",`${modem.signal}%`],["IP 支持",modem.ipFamilies],["本机号码",modem.ownNumbers.join('、')]]}/><SectionLabel text="模式与能力"/><SpecList rows={[["当前能力",modem.capabilities],["当前模式",modem.currentModes],["支持模式",modem.supportedModes]]}/><SectionLabel text="硬件"/><SpecList rows={[["制造商",modem.manufacturer],["型号",modem.model],["固件版本",modem.firmware],["IMEI",modem.imei],["设备 ID",modem.deviceId]]}/><SectionLabel text="系统集成"/><SpecList rows={[["主端口",modem.port],["全部端口",modem.ports.join('、')],["驱动",modem.drivers.join('、')],["插件",modem.plugin],["系统设备",modem.device]]}/><SectionLabel text="SIM 与安全"/><SpecList rows={[["SIM 卡",modem.sim],["解锁要求",modem.unlockRequired],["剩余重试",modem.unlockRetries.join('、')]]}/>{active&&<button className="primary active-btn" disabled><ShieldCheck/>当前设备</button>}</div></div>}
+function Detail({modem,active,onBack}:{modem:Modem;active:boolean;onBack:()=>void}) {
+  const { t, locale } = useI18n();
+  const st = (value:string) => translate(modemStates, value, locale);
+  return <div className="page"><Top title={t('detailTitle')} onBack={onBack}/><div className="content"><div className="detail-hero"><div className="big-device"><Radio/></div><h2>{modem.name}</h2><p><i/> {st(modem.state)} · {modem.network}</p></div><SectionLabel text={t('detailSectionStatusNetwork')}/><SpecList rows={[[t('detailSpecPower'),st(modem.powerState)],[t('detailSpecRegistration'),st(modem.registration)],[t('detailSpecPacketService'),st(modem.packetService)],[t('detailSpecOperator'),modem.network],[t('detailSpecOperatorCode'),modem.operatorCode],[t('detailSpecAccessTech'),modem.tech],[t('detailSpecSignalQuality'),`${modem.signal}%`],[t('detailSpecIPSupport'),modem.ipFamilies],[t('detailSpecOwnNumbers'),modem.ownNumbers.join('、')]]}/><SectionLabel text={t('detailSectionModesCapabilities')}/><SpecList rows={[[t('detailSpecCurrentCapabilities'),modem.capabilities],[t('detailSpecCurrentModes'),modem.currentModes],[t('detailSpecSupportedModes'),modem.supportedModes]]}/><SectionLabel text={t('detailSectionHardware')}/><SpecList rows={[[t('detailSpecManufacturer'),modem.manufacturer],[t('detailSpecModel'),modem.model],[t('detailSpecFirmware'),modem.firmware],[t('detailSpecImei'),modem.imei],[t('detailSpecDeviceId'),modem.deviceId]]}/><SectionLabel text={t('detailSectionSystemIntegration')}/><SpecList rows={[[t('detailSpecMainPort'),modem.port],[t('detailSpecAllPorts'),modem.ports.join('、')],[t('detailSpecDrivers'),modem.drivers.join('、')],[t('detailSpecPlugin'),modem.plugin],[t('detailSpecSystemDevice'),modem.device]]}/><SectionLabel text={t('detailSectionSIMSecurity')}/><SpecList rows={[[t('detailSpecSIMCard'),modem.sim],[t('detailSpecUnlock'),modem.unlockRequired],[t('detailSpecRetries'),modem.unlockRetries.join('、')]]}/>{active&&<button className="primary active-btn" disabled><ShieldCheck/>{t('detailActiveDevice')}</button>}</div></div>
+}
 function SpecList({rows}:{rows:[string,string][]}) {return <dl className="specs">{rows.filter(([,value])=>value).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
-function SignalBars({value}:{value:number}) {return <span className="bars" aria-label={`信号 ${value}%`}>{[25,45,65,80].map((n,i)=><i key={n} className={value>=n?'on':''} style={{height:5+i*3}}/>)}</span>}
+function SignalBars({value}:{value:number}) {
+  const { t } = useI18n();
+  return <span className="bars" aria-label={t('signalPercent', {n: value})}>{[25,45,65,80].map((n,i)=><i key={n} className={value>=n?'on':''} style={{height:5+i*3}}/>)}</span>
+}
+
