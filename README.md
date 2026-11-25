@@ -21,6 +21,10 @@ Browser
 The container acts as a D-Bus client. The host keeps ownership of
 ModemManager, udev, and the modem devices.
 
+The interface is localized: users can pick between Simplified Chinese, English,
+and Swedish in System Settings. The choice is saved in the browser and applies
+to the whole app, including status values reported by the backend.
+
 ## MVP Scope
 
 - Read live modem inventory and status directly from the host ModemManager

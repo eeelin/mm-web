@@ -132,3 +132,26 @@ Three consecutive failures send one Web Push notification per incident.
 The monitor must not open modem device nodes, parse `mmcli` output, require
 permanent DEBUG logging, or restart ModemManager automatically. Lower-level
 recovery remains an explicit host operation.
+
+## 11. Support user-selectable interface languages
+
+Decision: the app is not hardcoded to one language. Users pick between
+Simplified Chinese (`zh-CN`), English (`en`), and Swedish (`sv`) with a
+language selector on the System Settings screen.
+
+The frontend owns this decision through `src/i18n/`:
+
+- `locales/` holds one table per language, plus a `Translations` type so
+  `en` and `sv` must implement every key that exists in `zh-CN`. Adding a
+  locale means adding a locale file and one entry in `registry.ts`.
+- `registry.ts` is the single place that lists locales, stores the choice in
+  `localStorage`, and validates stored values (default: `zh-CN`).
+- `context.tsx` provides the `useI18n()` hook used by components; `t(key,
+  vars?)` substitutes `{name}` placeholders.
+- Values that come from the backend (ModemManager states, call states, SMS
+  states) are mapped through `states.ts` tables, so displays stay localized
+  while the canonical backend values remain the source of truth.
+- `formats.ts` keeps date/time formatting locale-aware.
+
+The backend continues to return canonical state strings; nothing about the
+D-Bus integration changes.
